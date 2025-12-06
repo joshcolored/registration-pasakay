@@ -108,9 +108,10 @@ export default function TripsPage() {
     setFilteredTrips(filtered);
   }, [searchQuery, filterStatus, trips]);
 
-  const formatDate = (timestamp: number) => {
+  const formatDate = (timestamp: number | string | undefined) => {
     if (!timestamp) return 'N/A';
-    return new Date(timestamp).toLocaleDateString('en-PH', {
+    const time = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
+    return new Date(time).toLocaleDateString('en-PH', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -340,7 +341,7 @@ export default function TripsPage() {
                       <td className="py-4 px-6">
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <Calendar className="w-4 h-4" />
-                          <span>{formatDate(trip.requestedAt)}</span>
+                          <span>{formatDate(trip.createdAt || trip.requestedAt)}</span>
                         </div>
                       </td>
                     </tr>
