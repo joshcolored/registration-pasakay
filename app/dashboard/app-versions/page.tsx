@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ref, onValue, set } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Smartphone, Download, Save, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { Smartphone, Download, Save, AlertCircle, CheckCircle, Info, Bell, Send } from 'lucide-react';
 
 interface AppVersionConfig {
   latestVersion: string;
@@ -12,6 +12,7 @@ interface AppVersionConfig {
   downloadUrl: string;
   releaseNotes: string;
   updatedAt: string;
+  notifyTimestamp?: string;
 }
 
 interface AppConfig {
@@ -35,6 +36,8 @@ export default function AppVersionsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<'passenger' | 'driver' | null>(null);
   const [success, setSuccess] = useState<'passenger' | 'driver' | null>(null);
+  const [notifying, setNotifying] = useState<'passenger' | 'driver' | null>(null);
+  const [notifySuccess, setNotifySuccess] = useState<'passenger' | 'driver' | null>(null);
 
   useEffect(() => {
     const configRef = ref(database, 'app_config');
@@ -82,10 +85,34 @@ export default function AppVersionsPage() {
     }));
   };
 
+  const handleNotifyUsers = async (appType: 'passenger' | 'driver') => {
+    setNotifying(appType);
+    setNotifySuccess(null);
+
+    try {
+      const configRef = ref(database, `app_config/${appType}`);
+      await set(configRef, {
+        ...config[appType],
+        notifyTimestamp: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      setNotifySuccess(appType);
+      setTimeout(() => setNotifySuccess(null), 3000);
+      alert(`Update notification sent to all ${appType}s! They will see the popup when they open the app.`);
+    } catch (error) {
+      console.error('Error notifying users:', error);
+      alert('Error sending notification. Please try again.');
+    } finally {
+      setNotifying(null);
+    }
+  };
+
   const renderVersionCard = (appType: 'passenger' | 'driver', title: string, icon: React.ReactNode) => {
     const appConfig = config[appType];
     const isSaving = saving === appType;
     const isSuccess = success === appType;
+    const isNotifying = notifying === appType;
+    const isNotifySuccess = notifySuccess === appType;
 
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -172,26 +199,38 @@ export default function AppVersionsPage() {
           </div>
 
           <div className="flex items-center justify-between pt-4 border-t">
-            {isSuccess && (
+            {(isSuccess || isNotifySuccess) && (
               <div className="flex items-center gap-2 text-green-600">
                 <CheckCircle className="w-5 h-5" />
-                <span>Saved successfully!</span>
+                <span>{isNotifySuccess ? 'Notification sent!' : 'Saved successfully!'}</span>
               </div>
             )}
-            {!isSuccess && <div />}
+            {!isSuccess && !isNotifySuccess && <div />}
             
-            <button
-              onClick={() => handleSave(appType)}
-              disabled={isSaving}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium ${
-                appType === 'passenger'
-                  ? 'bg-blue-600 hover:bg-blue-700'
-                  : 'bg-green-600 hover:bg-green-700'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleSave(appType)}
+                disabled={isSaving || isNotifying}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium ${
+                  appType === 'passenger'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-green-600 hover:bg-green-700'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+              
+              <button
+                onClick={() => handleNotifyUsers(appType)}
+                disabled={isSaving || isNotifying || !appConfig.downloadUrl}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!appConfig.downloadUrl ? 'Please set a download URL first' : 'Send update notification to all users'}
+              >
+                <Send className="w-4 h-4" />
+                {isNotifying ? 'Sending...' : 'Notify Users'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
