@@ -1,0 +1,213 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { ref, get, onValue, off } from 'firebase/database';
+import { auth, database } from '@/lib/firebase';
+import Image from 'next/image';
+import { Eye, EyeOff } from 'lucide-react';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  // Initialize logo from localStorage cache for instant display
+  const [logoUrl, setLogoUrl] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('cachedLogoUrl');
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    // Set up real-time listener for logo
+    const appRef = ref(database, 'settings/app');
+    
+    const unsubscribe = onValue(appRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Check for valid logo URL (not empty string, not null, not undefined)
+        const newLogoUrl = data.logoUrl && data.logoUrl.trim() !== '' ? data.logoUrl : null;
+        
+        setLogoUrl(newLogoUrl);
+        
+        if (newLogoUrl) {
+          // Cache for instant display on refresh
+          localStorage.setItem('cachedLogoUrl', newLogoUrl);
+        } else {
+          localStorage.removeItem('cachedLogoUrl');
+        }
+      } else {
+        setLogoUrl(null);
+        localStorage.removeItem('cachedLogoUrl');
+      }
+    }, (error) => {
+      console.error('Error loading logo:', error);
+    });
+
+    // Cleanup listener on unmount
+    return () => {
+      off(appRef);
+    };
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      // Sign in with Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      const userId = user.uid;
+
+      // Check if email is verified (skip for admins created manually)
+      if (!user.emailVerified) {
+        setError('Please verify your email address before logging in. Check your inbox for the verification email.');
+        await auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is admin
+      const userRef = ref(database, `users/${userId}`);
+      const snapshot = await get(userRef);
+
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+
+        if (userData.userType === 'admin') {
+          // Store admin info in localStorage
+          localStorage.setItem('adminUser', JSON.stringify({
+            userId: userId,
+            email: userData.email,
+            name: userData.name,
+            userType: userData.userType
+          }));
+
+          // Redirect to dashboard
+          router.push('/dashboard');
+        } else {
+          setError('Access denied. Admin privileges required.');
+          await auth.signOut();
+        }
+      } else {
+        setError('User not found in database.');
+        await auth.signOut();
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      if (err.code === 'auth/invalid-credential') {
+        setError('Invalid email or password.');
+      } else if (err.code === 'auth/user-not-found') {
+        setError('No account found with this email.');
+      } else if (err.code === 'auth/wrong-password') {
+        setError('Incorrect password.');
+      } else {
+        setError('Login failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+        {/* Logo and Title */}
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <div className="w-32 h-32 bg-white rounded-3xl shadow-lg flex items-center justify-center p-2">
+              <img
+                key={logoUrl || 'default-logo'}
+                src={logoUrl || "/pasakay-logo.png"}
+                alt="Pasakay Logo"
+                className="w-full h-full object-contain rounded-2xl"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/pasakay-logo.png';
+                }}
+              />
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Pasakay Admin</h1>
+          <p className="text-gray-600">Sign in to access the dashboard</p>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Login Form */}
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div>
+            <label htmlFor="email" className="block text-sm font-bold text-black mb-2">
+              Email Address
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-black font-semibold placeholder-gray-400"
+              placeholder="admin@pasakay.com"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-bold text-black mb-2">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-black font-semibold placeholder-gray-400"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500">
+            © 2025 Pasakay. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
