@@ -65,7 +65,11 @@ export default function TripsPage() {
         });
 
         // Sort by requested date (newest first)
-        tripsList.sort((a, b) => b.requestedAt - a.requestedAt);
+        tripsList.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt as string).getTime() : (a.requestedAt || 0);
+          const timeB = b.createdAt ? new Date(b.createdAt as string).getTime() : (b.requestedAt || 0);
+          return timeB - timeA;
+        });
 
         setTrips(tripsList);
       } else {
