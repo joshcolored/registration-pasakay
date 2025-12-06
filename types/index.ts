@@ -63,37 +63,52 @@ export interface Driver {
   createdAt?: number;
 }
 
+// Location Point Type (matches Flutter LocationPoint)
+export interface LocationPoint {
+  latitude: number;
+  longitude: number;
+  address: string;
+}
+
 // Trip Types
 export interface Trip {
   tripId: string;
   passengerId: string;
   passengerName: string;
-  passengerPhone: string;
+  passengerPhone?: string;
   driverId?: string;
   driverName?: string;
   driverPhone?: string;
   driverVehicleNumber?: string;
-  pickupLatitude: number;
-  pickupLongitude: number;
-  pickupAddress: string;
-  dropoffLatitude: number;
-  dropoffLongitude: number;
-  dropoffAddress: string;
-  status: 'pending' | 'accepted' | 'ongoing' | 'completed' | 'cancelled';
-  estimatedFare: number;
-  finalFare: number;
+  // Flutter uses LocationPoint objects
+  pickupLocation?: LocationPoint;
+  dropoffLocation?: LocationPoint;
+  // Legacy flat fields
+  pickupLatitude?: number;
+  pickupLongitude?: number;
+  pickupAddress?: string;
+  dropoffLatitude?: number;
+  dropoffLongitude?: number;
+  dropoffAddress?: string;
+  status: 'pending' | 'accepted' | 'ongoing' | 'completed' | 'cancelled' | string;
+  // Fare fields
+  fare?: number; // Flutter primary fare field
+  estimatedFare?: number;
+  finalFare?: number;
   currentFare?: number;
-  distance: number;
+  distance?: number;
   actualDistance?: number;
-  estimatedTime: string;
-  estimatedTimeSeconds: number;
-  passengerCount: number;
-  paymentMethod: string;
-  isPaid: boolean;
-  requestedAt: number;
-  acceptedAt?: number;
-  startedAt?: number;
-  completedAt?: number;
+  estimatedTime?: string;
+  estimatedTimeSeconds?: number;
+  passengerCount?: number;
+  paymentMethod?: string;
+  isPaid?: boolean;
+  // Timestamps - Flutter uses ISO strings
+  createdAt?: string | number;
+  requestedAt?: number;
+  acceptedAt?: string | number;
+  startedAt?: string | number;
+  completedAt?: string | number;
   driverRating?: number;
   passengerFeedback?: string;
 }
