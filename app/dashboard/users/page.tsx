@@ -208,6 +208,7 @@ export default function UsersPage() {
               <thead className="bg-gray-50 border-b-2 border-gray-300">
                 <tr>
                   <th className="text-left py-4 px-6 font-bold text-black">Name</th>
+                  <th className="text-left py-4 px-6 font-bold text-black">UID</th>
                   <th className="text-left py-4 px-6 font-bold text-black">Contact</th>
                   <th className="text-left py-4 px-6 font-bold text-black">Rating</th>
                   <th className="text-left py-4 px-6 font-bold text-black">Total Trips</th>
@@ -242,9 +243,11 @@ export default function UsersPage() {
                           )}
                           <div>
                             <p className="font-bold text-black">{user.name || 'N/A'}</p>
-                            <p className="text-sm text-gray-700 font-medium">{user.userId.substring(0, 8)}...</p>
                           </div>
                         </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <p className="text-sm font-mono text-gray-800 break-all">{user.userId}</p>
                       </td>
                       <td className="py-4 px-6">
                         <div className="space-y-1">
@@ -298,4 +301,3 @@ export default function UsersPage() {
     </DashboardLayout>
   );
 }
-

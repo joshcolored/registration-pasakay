@@ -485,6 +485,7 @@ export default function DriversPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left py-4 px-6 font-semibold text-gray-700">Driver</th>
+                  <th className="text-left py-4 px-6 font-semibold text-gray-700">UID</th>
                   <th className="text-left py-4 px-6 font-semibold text-gray-700">Vehicle</th>
                   <th className="text-left py-4 px-6 font-semibold text-gray-700">Contact</th>
                   <th className="text-left py-4 px-6 font-semibold text-gray-700">Trips</th>
@@ -524,6 +525,11 @@ export default function DriversPage() {
                             <p className="text-sm text-gray-500">License: {driver.licenseNumber || 'N/A'}</p>
                           </div>
                         </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <p className="text-sm font-mono text-gray-800 break-all">
+                          {driver.driverId}
+                        </p>
                       </td>
                       <td className="py-4 px-6">
                         <div>
@@ -622,4 +628,3 @@ export default function DriversPage() {
     </DashboardLayout>
   );
 }
-
