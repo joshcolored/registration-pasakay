@@ -98,7 +98,7 @@ export default function SettingsPage() {
     // Check if admin is logged in
     const adminUser = localStorage.getItem('adminUser');
     if (!adminUser) {
-      router.push('/login');
+      router.push('/pasakay/login');
       return;
     }
 

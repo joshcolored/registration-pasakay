@@ -107,7 +107,7 @@ export default function ServiceAreasPage() {
   useEffect(() => {
     const adminUser = localStorage.getItem('adminUser');
     if (!adminUser) {
-      router.push('/login');
+      router.push('/pasakay/login');
       return;
     }
     loadSettings();

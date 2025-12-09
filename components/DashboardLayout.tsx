@@ -15,7 +15,8 @@ import {
   X,
   UserCheck,
   Map,
-  Smartphone
+  Smartphone,
+  Store
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { auth, database } from '@/lib/firebase';
@@ -83,7 +84,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     try {
       await signOut(auth);
       localStorage.removeItem('adminUser');
-      router.push('/login');
+      router.push('/pasakay/login');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -94,6 +95,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Users', href: '/dashboard/users', icon: Users },
     { name: 'Drivers', href: '/dashboard/drivers', icon: Car },
     { name: 'Driver Verification', href: '/dashboard/driver-verification', icon: UserCheck },
+    { name: 'Merchants', href: '/dashboard/merchants', icon: Store },
     { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
     { name: 'Service Areas', href: '/dashboard/service-areas', icon: Map },
     { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },

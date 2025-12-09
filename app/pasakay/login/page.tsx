@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, get, onValue, off } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
-import Image from 'next/image';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Shield } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +14,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  
   // Initialize logo from localStorage cache for instant display
   const [logoUrl, setLogoUrl] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -89,7 +89,7 @@ export default function LoginPage() {
             name: userData.name,
             userType: userData.userType
           }));
-
+          
           // Redirect to dashboard
           router.push('/dashboard');
         } else {
@@ -194,9 +194,22 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? (
+              <>
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Signing in...
+              </>
+            ) : (
+              <>
+                <Shield className="w-5 h-5" />
+                Sign In
+              </>
+            )}
           </button>
         </form>
 
@@ -210,4 +223,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
