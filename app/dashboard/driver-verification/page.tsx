@@ -136,6 +136,9 @@ export default function DriverVerificationPage() {
       // Update driver record
       updates[`drivers/${driver.driverId}/verificationStatus`] = 'approved';
       updates[`drivers/${driver.driverId}/isApproved`] = true;
+      // Also set the main status field so the mobile app sees driver as approved
+      updates[`drivers/${driver.driverId}/status`] = 'approved';
+      updates[`drivers/${driver.driverId}/approvedAt`] = now;
       updates[`drivers/${driver.driverId}/verifiedBy`] = adminUser.userId;
       updates[`drivers/${driver.driverId}/verifiedAt`] = now;
       updates[`drivers/${driver.driverId}/subscriptionStartDate`] = subscriptionStartDate;
@@ -540,4 +543,3 @@ export default function DriverVerificationPage() {
     </DashboardLayout>
   );
 }
-
