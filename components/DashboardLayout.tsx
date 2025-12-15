@@ -16,7 +16,8 @@ import {
   UserCheck,
   Map,
   Smartphone,
-  Store
+  Store,
+  DeliveryDining
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { auth, database } from '@/lib/firebase';
