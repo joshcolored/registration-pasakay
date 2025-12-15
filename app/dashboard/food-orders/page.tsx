@@ -6,15 +6,11 @@ import { database } from '@/lib/firebase';
 import { ref, onValue, off } from 'firebase/database';
 import Link from 'next/link';
 import {
-  DeliveryDining,
+  Truck,
   Wallet,
   Building2,
   DollarSign,
   Filter,
-  Clock,
-  CheckCircle,
-  XCircle,
-  MapPin,
 } from 'lucide-react';
 
 type FoodOrder = {
@@ -174,7 +170,7 @@ export default function FoodOrdersPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <SummaryCard
-            icon={<DeliveryDining className="w-5 h-5" />}
+            icon={<Truck className="w-5 h-5" />}
             label="Delivered Orders"
             value={deliveredCount.toString()}
             color="bg-blue-100 text-blue-800"
