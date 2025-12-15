@@ -96,6 +96,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Drivers', href: '/dashboard/drivers', icon: Car },
     { name: 'Driver Verification', href: '/dashboard/driver-verification', icon: UserCheck },
     { name: 'Merchants', href: '/dashboard/merchants', icon: Store },
+    { name: 'Food Orders', href: '/dashboard/food-orders', icon: DeliveryDining },
     { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
     { name: 'Service Areas', href: '/dashboard/service-areas', icon: Map },
     { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
@@ -238,4 +239,3 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </div>
   );
 }
-
