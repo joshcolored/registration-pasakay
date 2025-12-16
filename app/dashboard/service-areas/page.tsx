@@ -154,8 +154,11 @@ export default function ServiceAreasPage() {
     setSaving(true);
     try {
       const settingsRef = ref(database, 'settings/geofencing');
+      // Persist both full list and active list for clients that only read enabled areas
+      const activeAreas = newSettings.serviceAreas.filter((a) => a.isEnabled);
       await set(settingsRef, {
         ...newSettings,
+        activeServiceAreas: activeAreas,
         updatedAt: new Date().toISOString(),
       });
       setSettings(newSettings);
