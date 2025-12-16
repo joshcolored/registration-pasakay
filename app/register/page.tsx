@@ -30,30 +30,6 @@ export default function RegisterLandingPage() {
             Become a partner and start earning with the leading ride-hailing and food delivery platform
           </p>
           
-          {/* Stats */}
-          <div className="flex justify-center gap-6 sm:gap-8 md:gap-16 flex-wrap px-2">
-            <div className="text-center group cursor-default min-w-[80px]">
-              <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
-                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                <span className="text-2xl sm:text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">10K+</span>
-              </div>
-              <p className="text-xs sm:text-sm text-gray-500">Active Partners</p>
-            </div>
-            <div className="text-center group cursor-default min-w-[80px]">
-              <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
-                <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                <span className="text-2xl sm:text-3xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">50K+</span>
-              </div>
-              <p className="text-xs sm:text-sm text-gray-500">Daily Rides</p>
-            </div>
-            <div className="text-center group cursor-default min-w-[80px]">
-              <div className="flex items-center justify-center gap-1 sm:gap-2 mb-1">
-                <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
-                <span className="text-2xl sm:text-3xl font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">4.8</span>
-              </div>
-              <p className="text-xs sm:text-sm text-gray-500">User Rating</p>
-            </div>
-          </div>
         </div>
 
         {/* Registration Cards */}
