@@ -204,6 +204,7 @@ export default function FoodOrdersPage() {
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Merchant</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Customer</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Driver</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Delivery Fee</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Commission</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Payout</th>
@@ -236,6 +237,7 @@ export default function FoodOrdersPage() {
                     </td>
                     <td className="py-3 px-4 text-gray-800">{order.merchantName}</td>
                     <td className="py-3 px-4 text-gray-600">{order.customerName}</td>
+                    <td className="py-3 px-4 text-gray-600">{order.driverName || '—'}</td>
                     <td className="py-3 px-4 text-gray-800">{formatCurrency(order.deliveryFee)}</td>
                     <td className="py-3 px-4 text-gray-800">{formatCurrency(order.platformCommission)}</td>
                     <td className="py-3 px-4 text-gray-800">{formatCurrency(order.driverPayout)}</td>
