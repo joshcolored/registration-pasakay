@@ -29,6 +29,9 @@ interface Merchant {
   createdAt: string;
   approvedAt?: string;
   rejectionReason?: string;
+  subscriptionPlan?: string;
+  subscriptionExpiry?: string;
+  hasActiveSubscription?: boolean;
 }
 
 const categoryIcons: Record<string, string> = {
@@ -52,6 +55,7 @@ export default function MerchantsPage() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [processing, setProcessing] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<string | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     const merchantsRef = ref(database, 'merchants');
@@ -166,6 +170,69 @@ export default function MerchantsPage() {
     return `${icon} ${name}`;
   };
 
+  const activateSubscription = async (merchant: Merchant, plan: 'oneMonth' | 'threeMonths') => {
+    try {
+      setSubscriptionLoading(merchant.uid);
+      const durationDays = plan === 'oneMonth' ? 30 : 90;
+      const expiry = new Date();
+      expiry.setDate(expiry.getDate() + durationDays);
+
+      await update(ref(database, `merchants/${merchant.uid}`), {
+        subscriptionPlan: plan,
+        subscriptionExpiry: expiry.toISOString(),
+        hasActiveSubscription: true,
+        subscriptionUpdatedAt: new Date().toISOString(),
+      });
+      alert(`${merchant.businessName} subscription activated (${plan === 'oneMonth' ? '1 month' : '3 months'})`);
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      alert('Failed to update subscription');
+    }
+    setSubscriptionLoading(null);
+  };
+
+  const suspendSubscription = async (merchant: Merchant) => {
+    try {
+      setSubscriptionLoading(merchant.uid);
+      await update(ref(database, `merchants/${merchant.uid}`), {
+        hasActiveSubscription: false,
+      });
+      alert(`${merchant.businessName} subscription suspended`);
+    } catch (error) {
+      console.error('Error suspending subscription:', error);
+      alert('Failed to suspend subscription');
+    }
+    setSubscriptionLoading(null);
+  };
+
+  const getSubscriptionStatus = (merchant: Merchant) => {
+    const expiryDate = merchant.subscriptionExpiry ? new Date(merchant.subscriptionExpiry) : null;
+    const daysRemaining =
+      expiryDate ? Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+
+    if (merchant.hasActiveSubscription && expiryDate && daysRemaining !== null && daysRemaining >= 0) {
+      return {
+        label: 'Active',
+        badgeClass: 'text-green-700 bg-green-100 border-green-200',
+        description: `Expires ${expiryDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })} (${daysRemaining} days left)`,
+      };
+    }
+
+    if (expiryDate) {
+      return {
+        label: 'Expired',
+        badgeClass: 'text-yellow-700 bg-yellow-50 border-yellow-200',
+        description: `Expired ${expiryDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      };
+    }
+
+    return {
+      label: 'No subscription',
+      badgeClass: 'text-gray-600 bg-gray-50 border-gray-200',
+      description: 'Activate a plan so this merchant can receive orders.',
+    };
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -256,11 +323,14 @@ export default function MerchantsPage() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {filteredMerchants.map((merchant) => (
-              <div
-                key={merchant.uid}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-              >
+            {filteredMerchants.map((merchant) => {
+              const subscription = getSubscriptionStatus(merchant);
+              const isSubscriptionUpdating = subscriptionLoading === merchant.uid;
+              return (
+                <div
+                  key={merchant.uid}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                >
                 <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                   {/* Logo & Basic Info */}
                   <div className="flex items-start gap-4 flex-1">
@@ -335,6 +405,40 @@ export default function MerchantsPage() {
                           </div>
                         </div>
                       )}
+
+                      {/* Subscription */}
+                      <div className={`mt-4 p-3 rounded-lg border ${subscription.badgeClass}`}>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-gray-800">Subscription</p>
+                          <span className="text-xs font-semibold">{subscription.label}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">{subscription.description}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <button
+                          onClick={() => activateSubscription(merchant, 'oneMonth')}
+                          disabled={isSubscriptionUpdating}
+                          className="px-3 py-2 text-sm rounded-lg border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 disabled:opacity-60"
+                        >
+                          {isSubscriptionUpdating ? 'Updating...' : 'Activate 1 mo (₱1,000)'}
+                        </button>
+                        <button
+                          onClick={() => activateSubscription(merchant, 'threeMonths')}
+                          disabled={isSubscriptionUpdating}
+                          className="px-3 py-2 text-sm rounded-lg border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-60"
+                        >
+                          Activate 3 mo (₱2,000)
+                        </button>
+                        {merchant.hasActiveSubscription && (
+                          <button
+                            onClick={() => suspendSubscription(merchant)}
+                            disabled={isSubscriptionUpdating}
+                            className="px-3 py-2 text-sm rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-60"
+                          >
+                            Suspend
+                          </button>
+                        )}
+                      </div>
 
                       {/* Rejection reason */}
                       {merchant.rejectionReason && (
@@ -429,7 +533,8 @@ export default function MerchantsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
