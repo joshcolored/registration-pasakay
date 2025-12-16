@@ -70,9 +70,10 @@ export default function DriverVerificationPage() {
               vehicleModel: driver.vehicleModel || 'N/A',
               licenseNumber: driver.vehicleLicense || driver.licenseNumber || 'N/A',
               verificationStatus: driver.verificationStatus || driver.status || 'pending',
-              driversLicenseUrl: driver.driversLicenseUrl || '',
-              orCrUrl: driver.orCrUrl || '',
-              validIdUrl: driver.validIdUrl || '',
+              // Fallback keys to avoid missing documents from older records
+              driversLicenseUrl: driver.driversLicenseUrl || driver.driverLicenseUrl || driver.licenseUrl || '',
+              orCrUrl: driver.orCrUrl || driver.vehicleOrCrUrl || driver.orcrUrl || '',
+              validIdUrl: driver.validIdUrl || driver.validId || driver.idUrl || '',
             });
           });
 
