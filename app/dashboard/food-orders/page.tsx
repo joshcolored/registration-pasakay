@@ -18,6 +18,7 @@ type FoodOrder = {
   status: string;
   merchantName: string;
   customerName: string;
+  driverId?: string;
   driverName?: string;
   deliveryFee: number;
   platformCommission: number;
@@ -29,11 +30,41 @@ type FoodOrder = {
 
 export default function FoodOrdersPage() {
   const [orders, setOrders] = useState<FoodOrder[]>([]);
+  const [driverNames, setDriverNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>({});
 
   useEffect(() => {
     const ordersRef = ref(database, 'food_orders');
+    const driversRef = ref(database, 'drivers');
+
+    const unsubscribeDrivers = onValue(
+      driversRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setDriverNames({});
+          return;
+        }
+        const data = snapshot.val();
+        const map: Record<string, string> = {};
+        Object.entries<any>(data).forEach(([id, value]) => {
+          const name =
+            value.driverName ||
+            value.name ||
+            value.fullName ||
+            value.displayName ||
+            value.userName ||
+            value.profile?.name ||
+            '';
+          if (name) map[id] = name;
+        });
+        setDriverNames(map);
+      },
+      (err) => {
+        console.error('Error loading drivers', err);
+      }
+    );
+
     const unsubscribe = onValue(
       ordersRef,
       (snapshot) => {
@@ -50,6 +81,19 @@ export default function FoodOrdersPage() {
             status: value.status || 'pending',
             merchantName: value.merchantName || 'N/A',
             customerName: value.customerName || 'N/A',
+            driverId:
+              value.driverId ||
+              value.driver_id ||
+              value.assignedDriverId ||
+              value.assignedDriver ||
+              value.driver?.id,
+            driverName:
+              value.driverName ||
+              value.driver_name ||
+              value.assignedDriverName ||
+              value.driver?.name ||
+              value.driver?.driverName ||
+              '',
             deliveryFee: Number(value.deliveryFee || 0),
             platformCommission: Number(value.platformCommission || 0),
             driverPayout: Number(value.driverPayout || 0),
@@ -69,7 +113,11 @@ export default function FoodOrdersPage() {
       }
     );
 
-    return () => off(ordersRef);
+    return () => {
+      off(ordersRef);
+      off(driversRef);
+      unsubscribeDrivers();
+    };
   }, []);
 
   const filtered = useMemo(() => {
@@ -238,7 +286,14 @@ export default function FoodOrdersPage() {
                     </td>
                     <td className="py-3 px-4 text-gray-800">{order.merchantName}</td>
                     <td className="py-3 px-4 text-gray-600">{order.customerName}</td>
-                    <td className="py-3 px-4 text-gray-600">{order.driverName || '—'}</td>
+                    <td className="py-3 px-4 text-gray-600">
+                      {(() => {
+                        const name = (order.driverName || '').trim();
+                        if (name) return name;
+                        if (order.driverId) return driverNames[order.driverId] || order.driverId;
+                        return '—';
+                      })()}
+                    </td>
                     <td className="py-3 px-4 text-gray-800">{formatCurrency(order.deliveryFee)}</td>
                     <td className="py-3 px-4 text-gray-800">{formatCurrency(order.platformCommission)}</td>
                     <td className="py-3 px-4 text-gray-800">{formatCurrency(order.driverPayout)}</td>
