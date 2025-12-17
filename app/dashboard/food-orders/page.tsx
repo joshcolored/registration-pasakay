@@ -18,6 +18,7 @@ type FoodOrder = {
   status: string;
   merchantName: string;
   customerName: string;
+  driverName?: string;
   deliveryFee: number;
   platformCommission: number;
   driverPayout: number;

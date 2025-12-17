@@ -148,7 +148,7 @@ export default function DriversPage() {
               userId: driverUserId,
               user: userData ? {
                 ...userData,
-                name: userData.name || 'N/A',
+                name: userData.name || userData.fullName || userData.displayName || 'N/A',
                 phoneNumber: userData.phone || userData.phoneNumber || 'N/A',
                 email: userData.email || 'N/A',
                 profileImageUrl: userData.profileImage || userData.profileImageUrl,
