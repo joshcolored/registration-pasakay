@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pasakay Admin Dashboard",
+  title: "Pasakay Registration",
   description: "Admin dashboard for Pasakay tricycle ride-hailing app",
 };
 
