@@ -12,9 +12,11 @@
     "@types/react-dom": "^19"
   },
   "dependencies": {
+    "firebase-admin": "^12.6.0",
     "firebase": "^12.4.0",
     "lucide-react": "^0.548.0",
     "next": "^15.3.3",
+    "nodemailer": "^6.9.14",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "recharts": "^3.3.0"

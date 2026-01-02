@@ -6,7 +6,7 @@ import { ref, get, update } from 'firebase/database';
 import { database, auth } from '@/lib/firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updateEmail, sendEmailVerification } from 'firebase/auth';
 import { FareSettings, SupportSettings, AppSettings } from '@/types';
-import { Save, DollarSign, Phone, Mail, User, CreditCard, Upload, X, Edit, Facebook, Clock, Headphones, ImageIcon, Wallet } from 'lucide-react';
+import { Save, DollarSign, Phone, Mail, User, CreditCard, Upload, X, Edit, Facebook, Clock, Headphones, ImageIcon, Wallet, Server, Lock, Send, Eye, EyeOff } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 
 interface AdminProfile {
@@ -29,6 +29,17 @@ interface SubscriptionSettings {
   oneMonthDays: number;
   threeMonthsDays: number;
   isEnabled: boolean;
+}
+
+interface SmtpSettings {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  fromEmail: string;
+  fromName: string;
+  secure: boolean;
+  hasPass?: boolean;
 }
 
 export default function SettingsPage() {
@@ -94,6 +105,22 @@ export default function SettingsPage() {
     isEnabled: true,
   });
 
+  const [smtpSettings, setSmtpSettings] = useState<SmtpSettings>({
+    host: '',
+    port: 587,
+    user: '',
+    pass: '',
+    fromEmail: '',
+    fromName: '',
+    secure: false,
+    hasPass: false,
+  });
+  const [smtpLoading, setSmtpLoading] = useState(false);
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [smtpTestEmail, setSmtpTestEmail] = useState('');
+  const [smtpTestSending, setSmtpTestSending] = useState(false);
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+
   useEffect(() => {
     // Check if admin is logged in
     const adminUser = localStorage.getItem('adminUser');
@@ -106,6 +133,40 @@ export default function SettingsPage() {
     setAdminUserId(userData.userId);
     loadSettings(userData.userId);
   }, [router]);
+
+  const getIdToken = async () => {
+    const user = auth.currentUser;
+    if (!user) return null;
+    return user.getIdToken();
+  };
+
+  const loadSmtpSettings = async () => {
+    setSmtpLoading(true);
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      const res = await fetch('/api/admin/smtp', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data?.data) {
+        setSmtpSettings({
+          host: data.data.host || '',
+          port: data.data.port || 587,
+          user: data.data.user || '',
+          pass: '',
+          fromEmail: data.data.fromEmail || '',
+          fromName: data.data.fromName || '',
+          secure: data.data.secure === true,
+          hasPass: data.data.hasPass === true,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading SMTP settings:', error);
+    } finally {
+      setSmtpLoading(false);
+    }
+  };
 
   const loadSettings = async (userId: string) => {
     try {
@@ -120,6 +181,7 @@ export default function SettingsPage() {
           email: data.email || '',
           phoneNumber: data.phoneNumber || '',
         });
+        setSmtpTestEmail((prev) => prev || data.email || '');
       }
 
       // Load Payment Settings (GCash) from settings/payment (matching Flutter app)
@@ -192,6 +254,8 @@ export default function SettingsPage() {
           isEnabled: data.isEnabled !== false,
         });
       }
+
+      await loadSmtpSettings();
 
       setLoading(false);
     } catch (error) {
@@ -429,6 +493,87 @@ export default function SettingsPage() {
       alert('Failed to save support settings');
     }
     setSaving(false);
+  };
+
+  const handleSaveSmtpSettings = async () => {
+    if (!smtpSettings.host.trim() || !smtpSettings.user.trim() || !smtpSettings.fromEmail.trim()) {
+      alert('SMTP host, username, and from email are required');
+      return;
+    }
+    if (!smtpSettings.pass && !smtpSettings.hasPass) {
+      alert('SMTP password is required');
+      return;
+    }
+    if (!confirm('Save SMTP settings?')) return;
+
+    setSmtpSaving(true);
+    try {
+      const token = await getIdToken();
+      if (!token) {
+        alert('Admin session expired. Please login again.');
+        return;
+      }
+      const res = await fetch('/api/admin/smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          host: smtpSettings.host.trim(),
+          port: smtpSettings.port,
+          user: smtpSettings.user.trim(),
+          pass: smtpSettings.pass,
+          fromEmail: smtpSettings.fromEmail.trim(),
+          fromName: smtpSettings.fromName.trim(),
+          secure: smtpSettings.secure,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to save SMTP settings');
+        return;
+      }
+      setSmtpSettings({
+        ...smtpSettings,
+        pass: '',
+        hasPass: true,
+      });
+      alert('SMTP settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving SMTP settings:', error);
+      alert('Failed to save SMTP settings');
+    } finally {
+      setSmtpSaving(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!smtpTestEmail.trim()) {
+      alert('Enter a test email address');
+      return;
+    }
+    setSmtpTestSending(true);
+    try {
+      const token = await getIdToken();
+      if (!token) {
+        alert('Admin session expired. Please login again.');
+        return;
+      }
+      const res = await fetch('/api/admin/smtp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: smtpTestEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to send test email');
+        return;
+      }
+      alert('Test email sent successfully!');
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      alert('Failed to send test email');
+    } finally {
+      setSmtpTestSending(false);
+    }
   };
 
   const handleSaveSubscriptionSettings = async () => {
@@ -1465,6 +1610,170 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* SMTP Settings */}
+        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-slate-600 to-slate-800 rounded-lg flex items-center justify-center">
+              <Server className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">SMTP Settings</h2>
+              <p className="text-sm text-gray-600">Used for admin OTP email verification</p>
+            </div>
+          </div>
+
+          {smtpLoading ? (
+            <div className="text-sm text-gray-600">Loading SMTP settings...</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">
+                    SMTP Host
+                  </label>
+                  <div className="relative">
+                    <Server className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="text"
+                      value={smtpSettings.host}
+                      onChange={(e) => setSmtpSettings({ ...smtpSettings, host: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
+                      placeholder="smtp.gmail.com"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">
+                    SMTP Port
+                  </label>
+                  <input
+                    type="number"
+                    value={smtpSettings.port}
+                    onChange={(e) => setSmtpSettings({ ...smtpSettings, port: Number(e.target.value || 0) })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
+                    placeholder="587"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">
+                    SMTP Username
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="text"
+                      value={smtpSettings.user}
+                      onChange={(e) => setSmtpSettings({ ...smtpSettings, user: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
+                      placeholder="your@email.com"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">
+                    SMTP Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type={showSmtpPassword ? 'text' : 'password'}
+                      value={smtpSettings.pass}
+                      onChange={(e) => setSmtpSettings({ ...smtpSettings, pass: e.target.value })}
+                      className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
+                      placeholder={smtpSettings.hasPass ? 'Saved (leave blank to keep)' : 'Enter password'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSmtpPassword(!showSmtpPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showSmtpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">
+                    From Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="email"
+                      value={smtpSettings.fromEmail}
+                      onChange={(e) => setSmtpSettings({ ...smtpSettings, fromEmail: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
+                      placeholder="no-reply@pasakay.com"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">
+                    From Name
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpSettings.fromName}
+                    onChange={(e) => setSmtpSettings({ ...smtpSettings, fromName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
+                    placeholder="Pasakay Admin"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <input
+                  id="smtpSecure"
+                  type="checkbox"
+                  checked={smtpSettings.secure}
+                  onChange={(e) => setSmtpSettings({ ...smtpSettings, secure: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="smtpSecure" className="text-sm text-gray-700 font-semibold">
+                  Use SSL/TLS (port 465)
+                </label>
+              </div>
+
+              <div className="pt-4 border-t space-y-3">
+                <div className="flex flex-col md:flex-row gap-3">
+                  <input
+                    type="email"
+                    value={smtpTestEmail}
+                    onChange={(e) => setSmtpTestEmail(e.target.value)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
+                    placeholder="Test email address"
+                  />
+                  <button
+                    onClick={handleSendTestEmail}
+                    disabled={smtpTestSending}
+                    className="px-4 py-2 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-800 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    {smtpTestSending ? 'Sending...' : 'Send Test'}
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleSaveSmtpSettings}
+                  disabled={smtpSaving}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-700 to-slate-900 text-white rounded-lg font-semibold hover:from-slate-800 hover:to-black disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  <Save className="w-5 h-5" />
+                  <span>{smtpSaving ? 'Saving...' : 'Save SMTP Settings'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Info Box */}
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h3 className="font-bold text-black mb-2">ℹ️ Important Notes</h3>
@@ -1544,4 +1853,3 @@ export default function SettingsPage() {
     </DashboardLayout>
   );
 }
-
