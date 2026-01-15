@@ -20,6 +20,8 @@ type FoodOrder = {
   customerName: string;
   driverId?: string;
   driverName?: string;
+  items: OrderItem[];
+  subtotal: number;
   deliveryFee: number;
   platformCommission: number;
   driverPayout: number;
@@ -28,15 +30,27 @@ type FoodOrder = {
   deliveredAt?: number;
 };
 
+type OrderItem = {
+  itemId: string;
+  name: string;
+  quantity: number;
+  price: number;
+  variantName?: string;
+  variantPriceAdjustment?: number;
+  addons?: { price: number }[];
+};
+
 export default function FoodOrdersPage() {
   const [orders, setOrders] = useState<FoodOrder[]>([]);
   const [driverNames, setDriverNames] = useState<Record<string, string>>({});
+  const [menuItemImages, setMenuItemImages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>({});
 
   useEffect(() => {
     const ordersRef = ref(database, 'food_orders');
     const driversRef = ref(database, 'drivers');
+    const menuItemsRef = ref(database, 'menu_items');
 
     const unsubscribeDrivers = onValue(
       driversRef,
@@ -65,6 +79,28 @@ export default function FoodOrdersPage() {
       }
     );
 
+    const unsubscribeMenuItems = onValue(
+      menuItemsRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setMenuItemImages({});
+          return;
+        }
+        const data = snapshot.val();
+        const map: Record<string, string> = {};
+        Object.entries<any>(data).forEach(([id, value]) => {
+          const imageUrl = value?.imageUrl || value?.photoUrl || value?.image;
+          if (imageUrl) {
+            map[id] = imageUrl;
+          }
+        });
+        setMenuItemImages(map);
+      },
+      (err) => {
+        console.error('Error loading menu items', err);
+      }
+    );
+
     const unsubscribe = onValue(
       ordersRef,
       (snapshot) => {
@@ -76,6 +112,18 @@ export default function FoodOrdersPage() {
         const data = snapshot.val();
         const list: FoodOrder[] = [];
         Object.entries<any>(data).forEach(([id, value]) => {
+          const rawItems = Array.isArray(value.items) ? value.items : [];
+          const items: OrderItem[] = rawItems.map((item: any) => ({
+            itemId: item?.itemId || item?.id || '',
+            name: item?.name || 'Item',
+            quantity: Number(item?.quantity || 0),
+            price: Number(item?.price || 0),
+            variantName: item?.variantName,
+            variantPriceAdjustment: Number(item?.variantPriceAdjustment || 0),
+            addons: Array.isArray(item?.addons)
+              ? item.addons.map((addon: any) => ({ price: Number(addon?.price || 0) }))
+              : undefined,
+          }));
           list.push({
             orderId: id,
             status: value.status || 'pending',
@@ -94,6 +142,8 @@ export default function FoodOrdersPage() {
               value.driver?.name ||
               value.driver?.driverName ||
               '',
+            items,
+            subtotal: Number(value.subtotal || 0),
             deliveryFee: Number(value.deliveryFee || 0),
             platformCommission: Number(value.platformCommission || 0),
             driverPayout: Number(value.driverPayout || 0),
@@ -116,7 +166,9 @@ export default function FoodOrdersPage() {
     return () => {
       off(ordersRef);
       off(driversRef);
+      off(menuItemsRef);
       unsubscribeDrivers();
+      unsubscribeMenuItems();
     };
   }, []);
 
@@ -165,6 +217,66 @@ export default function FoodOrdersPage() {
     };
     return map[status] || 'bg-gray-100 text-gray-800';
   };
+
+  const commissionRate = 0.1;
+
+  const fallbackImage =
+    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect fill="%23f3f4f6" width="64" height="64"/><text fill="%239ca3af" font-family="Arial" font-size="10" x="50%" y="50%" text-anchor="middle" dy=".3em">No image</text></svg>';
+
+  const itemTotal = (item: OrderItem) => {
+    const base = (item.price + (item.variantPriceAdjustment || 0)) * item.quantity;
+    const addonsTotal = (item.addons || []).reduce((sum, addon) => sum + addon.price * item.quantity, 0);
+    return base + addonsTotal;
+  };
+
+  const merchantSummaries = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        merchantName: string;
+        deliveredOrders: number;
+        itemCount: number;
+        itemsSubtotal: number;
+        platformCommission: number;
+        items: Record<string, { itemId: string; name: string; quantity: number; total: number }>;
+      }
+    >();
+
+    delivered.forEach((order) => {
+      const key = order.merchantName || 'Unknown';
+      const entry =
+        map.get(key) ||
+        {
+          merchantName: key,
+          deliveredOrders: 0,
+          itemCount: 0,
+          itemsSubtotal: 0,
+          platformCommission: 0,
+          items: {},
+        };
+      entry.deliveredOrders += 1;
+      entry.platformCommission += order.platformCommission;
+
+      let orderSubtotal = 0;
+      order.items.forEach((item) => {
+        const label = item.variantName ? `${item.name} (${item.variantName})` : item.name;
+        const total = itemTotal(item);
+        entry.itemCount += item.quantity;
+        orderSubtotal += total;
+
+        const key = `${item.itemId}|${label}`;
+        if (!entry.items[key]) {
+          entry.items[key] = { itemId: item.itemId, name: label, quantity: 0, total: 0 };
+        }
+        entry.items[key].quantity += item.quantity;
+        entry.items[key].total += total;
+      });
+      entry.itemsSubtotal += orderSubtotal > 0 ? orderSubtotal : order.subtotal;
+      map.set(key, entry);
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.platformCommission - a.platformCommission);
+  }, [delivered]);
 
   return (
     <DashboardLayout>
@@ -242,6 +354,83 @@ export default function FoodOrdersPage() {
             value={formatCurrency(deliveryFeeTotal)}
             color="bg-purple-100 text-purple-800"
           />
+        </div>
+
+        {/* Merchant item summary */}
+        <div className="bg-white rounded-lg shadow p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Merchant Item Sales (Delivered)</h2>
+            <p className="text-sm text-gray-600">Item totals and commission per merchant</p>
+          </div>
+          {merchantSummaries.length === 0 ? (
+            <p className="text-sm text-gray-500">No delivered orders yet.</p>
+          ) : (
+            <div className="grid gap-4">
+              {merchantSummaries.map((summary) => {
+                const topItems = Object.values(summary.items)
+                  .sort((a, b) => b.total - a.total)
+                  .slice(0, 5);
+                return (
+                  <div
+                    key={summary.merchantName}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-gray-900">{summary.merchantName}</p>
+                        <p className="text-xs text-gray-500">{summary.deliveredOrders} delivered orders</p>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-sm">
+                        <span className="px-2 py-1 rounded bg-gray-50 text-gray-700">
+                          Items: {summary.itemCount}
+                        </span>
+                        <span className="px-2 py-1 rounded bg-gray-50 text-gray-700">
+                          Items Total: {formatCurrency(summary.itemsSubtotal)}
+                        </span>
+                        <span className="px-2 py-1 rounded bg-amber-50 text-amber-700">
+                          Commission: {formatCurrency(summary.platformCommission)}
+                        </span>
+                      </div>
+                    </div>
+                    {topItems.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold text-gray-600">Top Items</p>
+                        <div className="mt-2 space-y-1 text-sm text-gray-700">
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span className="flex-1">Item</span>
+                            <span className="w-12 text-right">Qty</span>
+                            <span className="w-24 text-right">Total</span>
+                            <span className="w-28 text-right">Commission</span>
+                          </div>
+                          {topItems.map((item) => (
+                            <div key={`${item.itemId}-${item.name}`} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <img
+                                  src={menuItemImages[item.itemId] || fallbackImage}
+                                  alt={item.name}
+                                  className="w-8 h-8 rounded object-cover border border-gray-200"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = fallbackImage;
+                                  }}
+                                />
+                                <span className="truncate">{item.name}</span>
+                              </div>
+                              <span className="w-12 text-right text-gray-500">{item.quantity}x</span>
+                              <span className="w-24 text-right font-semibold">{formatCurrency(item.total)}</span>
+                              <span className="w-28 text-right text-amber-700">
+                                {formatCurrency(item.total * commissionRate)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Table */}

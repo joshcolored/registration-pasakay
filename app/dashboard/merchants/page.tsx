@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { ref, onValue, update, set } from 'firebase/database';
+import { useEffect, useState } from 'react';
+import { ref, onValue, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { 
   Store, Search, CheckCircle, XCircle, Clock, Phone, Mail, 
@@ -29,26 +29,18 @@ interface Merchant {
   createdAt: string;
   approvedAt?: string;
   rejectionReason?: string;
-  subscriptionPlan?: string;
-  subscriptionExpiry?: string;
-  hasActiveSubscription?: boolean;
 }
 
-interface MerchantSubscriptionSettingsForm {
-  oneMonthPrice: string;
-  threeMonthsPrice: string;
-  oneMonthDays: string;
-  threeMonthsDays: string;
-  requireActiveSubscription: boolean;
+interface MenuItem {
+  id: string;
+  merchantId: string;
+  name: string;
+  price: number;
+  imageUrl?: string;
+  categoryName?: string;
+  isAvailable?: boolean;
+  isFeatured?: boolean;
 }
-
-const defaultMerchantSubscriptionSettings: MerchantSubscriptionSettingsForm = {
-  oneMonthPrice: '1000',
-  threeMonthsPrice: '2000',
-  oneMonthDays: '30',
-  threeMonthsDays: '90',
-  requireActiveSubscription: true,
-};
 
 const categoryIcons: Record<string, string> = {
   restaurant: '🍽️',
@@ -71,18 +63,8 @@ export default function MerchantsPage() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [processing, setProcessing] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<string | null>(null);
-  const [subscriptionLoading, setSubscriptionLoading] = useState<string | null>(null);
-  const [subscriptionSettings, setSubscriptionSettings] = useState<MerchantSubscriptionSettingsForm>(defaultMerchantSubscriptionSettings);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [savingSettings, setSavingSettings] = useState(false);
-  const numericSettings = useMemo(() => ({
-    oneMonthPrice: Number(subscriptionSettings.oneMonthPrice) || 0,
-    threeMonthsPrice: Number(subscriptionSettings.threeMonthsPrice) || 0,
-    oneMonthDays: Number(subscriptionSettings.oneMonthDays) || 0,
-    threeMonthsDays: Number(subscriptionSettings.threeMonthsDays) || 0,
-  }), [subscriptionSettings]);
-  const formatPrice = (value: number) =>
-    `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const [menuItemsByMerchant, setMenuItemsByMerchant] = useState<Record<string, MenuItem[]>>({});
+  const [expandedMerchants, setExpandedMerchants] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const merchantsRef = ref(database, 'merchants');
@@ -105,29 +87,47 @@ export default function MerchantsPage() {
   }, []);
 
   useEffect(() => {
-    const settingsRef = ref(database, 'settings/merchantSubscription');
-    const unsubscribe = onValue(settingsRef, (snapshot) => {
-      if (snapshot.exists()) {
+    const menuItemsRef = ref(database, 'menu_items');
+    const unsubscribe = onValue(
+      menuItemsRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setMenuItemsByMerchant({});
+          return;
+        }
         const data = snapshot.val();
-        setSubscriptionSettings({
-          oneMonthPrice: String(data.oneMonthPrice ?? defaultMerchantSubscriptionSettings.oneMonthPrice),
-          threeMonthsPrice: String(data.threeMonthsPrice ?? defaultMerchantSubscriptionSettings.threeMonthsPrice),
-          oneMonthDays: String(data.oneMonthDays ?? defaultMerchantSubscriptionSettings.oneMonthDays),
-          threeMonthsDays: String(data.threeMonthsDays ?? defaultMerchantSubscriptionSettings.threeMonthsDays),
-          requireActiveSubscription:
-              data.requireActiveSubscription ?? defaultMerchantSubscriptionSettings.requireActiveSubscription,
+        const grouped: Record<string, MenuItem[]> = {};
+        Object.entries<any>(data).forEach(([id, value]) => {
+          const merchantId = value?.merchantId || '';
+          if (!merchantId) return;
+          const item: MenuItem = {
+            id,
+            merchantId,
+            name: value?.name || 'Item',
+            price: Number(value?.price || 0),
+            imageUrl: value?.imageUrl || value?.photoUrl || value?.image,
+            categoryName: value?.categoryName,
+            isAvailable: value?.isAvailable !== false,
+            isFeatured: value?.isFeatured === true,
+          };
+          if (!grouped[merchantId]) {
+            grouped[merchantId] = [];
+          }
+          grouped[merchantId].push(item);
         });
-      } else {
-        setSubscriptionSettings(defaultMerchantSubscriptionSettings);
+        Object.values(grouped).forEach((items) => {
+          items.sort((a, b) => (b?.name || '').localeCompare(a?.name || ''));
+        });
+        setMenuItemsByMerchant(grouped);
+      },
+      (error) => {
+        console.error('Error loading menu items:', error);
       }
-      setSettingsLoaded(true);
-    }, (error) => {
-      console.error('Error loading subscription settings:', error);
-      setSettingsLoaded(true);
-    });
+    );
 
     return () => unsubscribe();
   }, []);
+
 
   useEffect(() => {
     let filtered = merchants.filter(m => {
@@ -160,6 +160,9 @@ export default function MerchantsPage() {
         status: 'approved',
         approvedAt: new Date().toISOString(),
         approvedBy: 'admin',
+        rejectionReason: null,
+        rejectedAt: null,
+        suspendedAt: null,
       });
       
       await update(ref(database, `users/${merchant.uid}`), {
@@ -185,13 +188,21 @@ export default function MerchantsPage() {
     setProcessing(true);
     try {
       const statusValue = isSuspending ? 'suspended' : 'rejected';
-      await update(ref(database, `merchants/${selectedMerchant.uid}`), {
+      const updates: Record<string, any> = {
         status: statusValue,
-        rejectionReason: rejectionReason.trim() || (isSuspending ? 'Suspended by admin' : undefined),
-        rejectedAt: !isSuspending ? new Date().toISOString() : undefined,
-        suspendedAt: isSuspending ? new Date().toISOString() : undefined,
         hasActiveSubscription: false,
-      });
+        isOpen: false,
+      };
+
+      if (isSuspending) {
+        updates.suspendedAt = new Date().toISOString();
+        updates.rejectionReason = 'Suspended by admin';
+      } else {
+        updates.rejectedAt = new Date().toISOString();
+        updates.rejectionReason = rejectionReason.trim();
+      }
+
+      await update(ref(database, `merchants/${selectedMerchant.uid}`), updates);
 
       await update(ref(database, `users/${selectedMerchant.uid}`), {
         isApproved: statusValue === 'approved',
@@ -229,107 +240,19 @@ export default function MerchantsPage() {
     return `${icon} ${name}`;
   };
 
-  const handleSettingsInputChange = (
-    field: 'oneMonthPrice' | 'threeMonthsPrice' | 'oneMonthDays' | 'threeMonthsDays',
-    value: string,
-  ) => {
-    setSubscriptionSettings((prev) => ({
+  const toggleMenuItems = (merchantId: string) => {
+    setExpandedMerchants((prev) => ({
       ...prev,
-      [field]: value,
+      [merchantId]: !prev[merchantId],
     }));
   };
 
-  const handleSaveSubscriptionSettings = async () => {
-    setSavingSettings(true);
-    try {
-      await set(ref(database, 'settings/merchantSubscription'), {
-        oneMonthPrice: numericSettings.oneMonthPrice,
-        threeMonthsPrice: numericSettings.threeMonthsPrice,
-        oneMonthDays: numericSettings.oneMonthDays,
-        threeMonthsDays: numericSettings.threeMonthsDays,
-        requireActiveSubscription: subscriptionSettings.requireActiveSubscription,
-        updatedAt: new Date().toISOString(),
-      });
-      alert('Merchant subscription settings saved!');
-    } catch (error) {
-      console.error('Error saving subscription settings:', error);
-      alert('Failed to save subscription settings');
-    }
-    setSavingSettings(false);
-  };
+  const isSuspending = selectedMerchant?.status === 'approved';
 
-  const getPlanConfig = (plan: 'oneMonth' | 'threeMonths') => ({
-    price: plan === 'oneMonth' ? numericSettings.oneMonthPrice : numericSettings.threeMonthsPrice,
-    days: plan === 'oneMonth' ? numericSettings.oneMonthDays : numericSettings.threeMonthsDays,
-  });
 
-  const activateSubscription = async (merchant: Merchant, plan: 'oneMonth' | 'threeMonths') => {
-    try {
-      setSubscriptionLoading(merchant.uid);
-      const planConfig = getPlanConfig(plan);
-      const fallbackDuration = plan === 'oneMonth' ? 30 : 90;
-      const durationDays = planConfig.days > 0 ? planConfig.days : fallbackDuration;
-      const expiry = new Date();
-      expiry.setDate(expiry.getDate() + durationDays);
 
-      await update(ref(database, `merchants/${merchant.uid}`), {
-        subscriptionPlan: plan,
-        subscriptionExpiry: expiry.toISOString(),
-        hasActiveSubscription: true,
-        subscriptionUpdatedAt: new Date().toISOString(),
-      });
-      const planLabel = plan === 'oneMonth' ? '1 month' : '3 months';
-      alert(`${merchant.businessName} subscription activated (${planLabel})`);
-    } catch (error) {
-      console.error('Error updating subscription:', error);
-      alert('Failed to update subscription');
-    }
-    setSubscriptionLoading(null);
-  };
 
-  const suspendSubscription = async (merchant: Merchant) => {
-    try {
-      setSubscriptionLoading(merchant.uid);
-      await update(ref(database, `merchants/${merchant.uid}`), {
-        hasActiveSubscription: false,
-      });
-      alert(`${merchant.businessName} subscription suspended`);
-    } catch (error) {
-      console.error('Error suspending subscription:', error);
-      alert('Failed to suspend subscription');
-    }
-    setSubscriptionLoading(null);
-  };
 
-  const getSubscriptionStatus = (merchant: Merchant) => {
-    const expiryDate = merchant.subscriptionExpiry ? new Date(merchant.subscriptionExpiry) : null;
-    const daysRemaining =
-      expiryDate ? Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
-
-    if (merchant.hasActiveSubscription && expiryDate && daysRemaining !== null && daysRemaining >= 0) {
-      return {
-        label: 'Active',
-        badgeClass: 'text-green-700 bg-green-100 border-green-200',
-        description: `Expires ${expiryDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })} (${daysRemaining} days left)`,
-      };
-    }
-
-    if (expiryDate) {
-      return {
-        label: 'Expired',
-        badgeClass: 'text-yellow-700 bg-yellow-50 border-yellow-200',
-        description: `Expired ${expiryDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-      };
-    }
-
-    return {
-      label: 'No subscription',
-      badgeClass: 'text-gray-600 bg-gray-50 border-gray-200',
-      description: subscriptionSettings.requireActiveSubscription
-        ? 'Activate a plan so this merchant can receive orders.'
-        : 'Optional — activate a plan for better marketplace placement.',
-    };
-  };
 
   return (
     <DashboardLayout>
@@ -353,110 +276,6 @@ export default function MerchantsPage() {
           </div>
         </div>
       </div>
-
-        {/* Subscription Settings */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Merchant Subscription Settings</h2>
-              <p className="text-gray-600 text-sm">Update plan pricing, duration, and requirement in real-time.</p>
-            </div>
-            <button
-              onClick={handleSaveSubscriptionSettings}
-              disabled={!settingsLoaded || savingSettings}
-              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 disabled:opacity-60"
-            >
-              {savingSettings ? 'Saving...' : 'Save settings'}
-            </button>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">1 Month Plan</p>
-                <p className="text-xs text-gray-500">Best for new or seasonal partners.</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600">Price (PHP)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={subscriptionSettings.oneMonthPrice}
-                  onChange={(e) => handleSettingsInputChange('oneMonthPrice', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600">Duration (days)</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={subscriptionSettings.oneMonthDays}
-                  onChange={(e) => handleSettingsInputChange('oneMonthDays', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-              <p className="text-xs text-gray-500">
-                Merchants pay {formatPrice(numericSettings.oneMonthPrice || 0)} for {numericSettings.oneMonthDays || 0} days.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">3 Months Plan</p>
-                <p className="text-xs text-gray-500">Longer commitment with better savings.</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600">Price (PHP)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={subscriptionSettings.threeMonthsPrice}
-                  onChange={(e) => handleSettingsInputChange('threeMonthsPrice', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600">Duration (days)</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={subscriptionSettings.threeMonthsDays}
-                  onChange={(e) => handleSettingsInputChange('threeMonthsDays', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-              <p className="text-xs text-gray-500">
-                Merchants pay {formatPrice(numericSettings.threeMonthsPrice || 0)} for {numericSettings.threeMonthsDays || 0} days.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={subscriptionSettings.requireActiveSubscription}
-                onChange={(e) =>
-                  setSubscriptionSettings((prev) => ({
-                    ...prev,
-                    requireActiveSubscription: e.target.checked,
-                  }))
-                }
-                className="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-              />
-              <span className="text-sm text-gray-700">
-                <span className="block font-semibold text-gray-900">Require active subscription</span>
-                {subscriptionSettings.requireActiveSubscription ? (
-                  <span className="text-gray-600">
-                    Merchants without a valid plan are hidden from passengers and food ordering.
-                  </span>
-                ) : (
-                  <span className="text-gray-600">
-                    Merchants remain visible even if their plan expires (useful during promos).
-                  </span>
-                )}
-              </span>
-            </label>
-          </div>
-        </div>
 
         {/* Tabs */}
         <div className="border-b border-gray-200">
@@ -525,14 +344,11 @@ export default function MerchantsPage() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {filteredMerchants.map((merchant) => {
-              const subscription = getSubscriptionStatus(merchant);
-              const isSubscriptionUpdating = subscriptionLoading === merchant.uid;
-              return (
-                <div
-                  key={merchant.uid}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-                >
+            {filteredMerchants.map((merchant) => (
+              <div
+                key={merchant.uid}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              >
                 <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                   {/* Logo & Basic Info */}
                   <div className="flex items-start gap-4 flex-1">
@@ -608,39 +424,59 @@ export default function MerchantsPage() {
                         </div>
                       )}
 
-                      {/* Subscription */}
-                      <div className={`mt-4 p-3 rounded-lg border ${subscription.badgeClass}`}>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold text-gray-800">Subscription</p>
-                          <span className="text-xs font-semibold">{subscription.label}</span>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">{subscription.description}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-3">
+                      {/* Menu items */}
+                      <div className="mt-4">
                         <button
-                          onClick={() => activateSubscription(merchant, 'oneMonth')}
-                          disabled={isSubscriptionUpdating}
-                          className="px-3 py-2 text-sm rounded-lg border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 disabled:opacity-60"
+                          onClick={() => toggleMenuItems(merchant.uid)}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-700"
                         >
-                          {isSubscriptionUpdating
-                            ? 'Updating...'
-                            : `Activate 1 mo (${formatPrice(getPlanConfig('oneMonth').price || 0)})`}
+                          {expandedMerchants[merchant.uid] ? 'Hide Menu Items' : 'View Menu Items'}
+                          {menuItemsByMerchant[merchant.uid]?.length
+                            ? ` (${menuItemsByMerchant[merchant.uid].length})`
+                            : ''}
                         </button>
-                        <button
-                          onClick={() => activateSubscription(merchant, 'threeMonths')}
-                          disabled={isSubscriptionUpdating}
-                          className="px-3 py-2 text-sm rounded-lg border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-60"
-                        >
-                          {`Activate 3 mo (${formatPrice(getPlanConfig('threeMonths').price || 0)})`}
-                        </button>
-                        {merchant.hasActiveSubscription && (
-                          <button
-                            onClick={() => suspendSubscription(merchant)}
-                            disabled={isSubscriptionUpdating}
-                            className="px-3 py-2 text-sm rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-60"
-                          >
-                            Suspend
-                          </button>
+                        {expandedMerchants[merchant.uid] && (
+                          <div className="mt-3 grid gap-3">
+                            {(menuItemsByMerchant[merchant.uid] || []).length === 0 ? (
+                              <p className="text-sm text-gray-500">No menu items yet.</p>
+                            ) : (
+                              (menuItemsByMerchant[merchant.uid] || []).map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg"
+                                >
+                                  <img
+                                    src={
+                                      item.imageUrl ||
+                                      'data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\"><rect fill=\"%23f3f4f6\" width=\"64\" height=\"64\"/><text fill=\"%239ca3af\" font-family=\"Arial\" font-size=\"10\" x=\"50%\" y=\"50%\" text-anchor=\"middle\" dy=\".3em\">No image</text></svg>'
+                                    }
+                                    alt={item.name}
+                                    className="w-12 h-12 rounded object-cover border border-gray-200"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.src =
+                                        'data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\"><rect fill=\"%23f3f4f6\" width=\"64\" height=\"64\"/><text fill=\"%239ca3af\" font-family=\"Arial\" font-size=\"10\" x=\"50%\" y=\"50%\" text-anchor=\"middle\" dy=\".3em\">No image</text></svg>';
+                                    }}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">{item.name}</p>
+                                    <p className="text-xs text-gray-500 truncate">
+                                      {item.categoryName || 'Uncategorized'}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                                      <span className={item.isAvailable ? 'text-green-600' : 'text-red-600'}>
+                                        {item.isAvailable ? 'Available' : 'Unavailable'}
+                                      </span>
+                                      {item.isFeatured && <span className="text-purple-600">Featured</span>}
+                                    </div>
+                                  </div>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    ₱{item.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                  </p>
+                                </div>
+                              ))
+                            )}
+                          </div>
                         )}
                       </div>
 
@@ -737,8 +573,7 @@ export default function MerchantsPage() {
                   </div>
                 </div>
               </div>
-              );
-            })}
+            ))}
           </div>
         )}
 
@@ -748,7 +583,7 @@ export default function MerchantsPage() {
             <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {selectedMerchant.status === 'approved' ? 'Suspend' : 'Reject'} Merchant
+                  {isSuspending ? 'Suspend' : 'Reject'} Merchant
                 </h3>
                 <button
                   onClick={() => {
@@ -763,19 +598,20 @@ export default function MerchantsPage() {
               </div>
               
               <p className="text-gray-600 mb-4">
-                {selectedMerchant.status === 'approved' 
+                {isSuspending
                   ? `Are you sure you want to suspend ${selectedMerchant.businessName}?`
-                  : `Please provide a reason for rejecting ${selectedMerchant.businessName}:`
-                }
+                  : `Please provide a reason for rejecting ${selectedMerchant.businessName}:`}
               </p>
               
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Enter reason..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none text-gray-900"
-                rows={3}
-              />
+              {!isSuspending && (
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Enter reason..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none text-gray-900"
+                  rows={3}
+                />
+              )}
               
               <div className="flex gap-3 mt-4">
                 <button
@@ -790,10 +626,10 @@ export default function MerchantsPage() {
                 </button>
                 <button
                   onClick={handleReject}
-                  disabled={processing || !rejectionReason.trim()}
+                  disabled={processing || (!isSuspending && !rejectionReason.trim())}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                 >
-                  {processing ? 'Processing...' : selectedMerchant.status === 'approved' ? 'Suspend' : 'Reject'}
+                  {processing ? 'Processing...' : isSuspending ? 'Suspend' : 'Reject'}
                 </button>
               </div>
             </div>

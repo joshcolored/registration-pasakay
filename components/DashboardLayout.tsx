@@ -17,8 +17,7 @@ import {
   Map,
   Smartphone,
   Store,
-  Truck,
-  Receipt
+  Truck
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { auth, database } from '@/lib/firebase';
@@ -99,7 +98,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Driver Verification', href: '/dashboard/driver-verification', icon: UserCheck },
     { name: 'Merchants', href: '/dashboard/merchants', icon: Store },
     { name: 'Food Orders', href: '/dashboard/food-orders', icon: Truck },
-    { name: 'Merchant Payments', href: '/dashboard/merchant-payments', icon: Receipt },
     { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
     { name: 'Service Areas', href: '/dashboard/service-areas', icon: Map },
     { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
