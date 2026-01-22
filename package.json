@@ -12,6 +12,7 @@
     "@types/react-dom": "^19"
   },
   "dependencies": {
+    "@react-google-maps/api": "^2.20.6",
     "firebase-admin": "^12.6.0",
     "firebase": "^12.4.0",
     "lucide-react": "^0.548.0",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/google.maps": "^3.55.12",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

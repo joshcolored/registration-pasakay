@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { getDatabase, ref, set } from 'firebase/database';
@@ -48,6 +49,10 @@ export default function MerchantRegistrationPage() {
   const [locationLat, setLocationLat] = useState('');
   const [locationLng, setLocationLng] = useState('');
   const [locationStatus, setLocationStatus] = useState('');
+
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+  });
 
   // Form fields
   const [formData, setFormData] = useState({
@@ -95,6 +100,26 @@ export default function MerchantRegistrationPage() {
     }
   };
 
+  const defaultCenter = useMemo(() => ({ lat: 10.2667, lng: 122.85 }), []);
+  const parsedLat = parseFloat(locationLat);
+  const parsedLng = parseFloat(locationLng);
+  const mapCenter = useMemo(
+    () =>
+      Number.isNaN(parsedLat) || Number.isNaN(parsedLng)
+        ? defaultCenter
+        : { lat: parsedLat, lng: parsedLng },
+    [parsedLat, parsedLng, defaultCenter]
+  );
+
+  const handleMapClick = (event: google.maps.MapMouseEvent) => {
+    if (!event.latLng) return;
+    const lat = event.latLng.lat();
+    const lng = event.latLng.lng();
+    setLocationLat(lat.toFixed(6));
+    setLocationLng(lng.toFixed(6));
+    setLocationStatus('Location pinned on map.');
+  };
+
   const handleUseCurrentLocation = () => {
     setLocationStatus('');
     if (!navigator.geolocation) {
@@ -106,7 +131,7 @@ export default function MerchantRegistrationPage() {
       (position) => {
         setLocationLat(position.coords.latitude.toFixed(6));
         setLocationLng(position.coords.longitude.toFixed(6));
-        setLocationStatus('Location captured.');
+        setLocationStatus('Location captured from device.');
       },
       (err) => {
         setLocationStatus(err.message || 'Failed to get location.');
@@ -170,7 +195,7 @@ export default function MerchantRegistrationPage() {
     const parsedLat = parseFloat(locationLat);
     const parsedLng = parseFloat(locationLng);
     if (Number.isNaN(parsedLat) || Number.isNaN(parsedLng)) {
-      setError('Please use the location button to capture your business location.');
+      setError('Please pin your business location on the map or use your current location.');
       return;
     }
 
@@ -534,6 +559,31 @@ export default function MerchantRegistrationPage() {
                         required
                       />
                     </div>
+                  </div>
+                  <div className="mt-4">
+                    {loadError ? (
+                      <p className="text-xs text-red-600">Failed to load Google Maps.</p>
+                    ) : !isLoaded ? (
+                      <p className="text-xs text-gray-500">Loading map...</p>
+                    ) : (
+                      <div className="h-64 w-full overflow-hidden rounded-lg border border-gray-200">
+                        <GoogleMap
+                          mapContainerStyle={{ width: '100%', height: '100%' }}
+                          center={mapCenter}
+                          zoom={15}
+                          onClick={handleMapClick}
+                          options={{
+                            streetViewControl: false,
+                            mapTypeControl: false,
+                            fullscreenControl: false,
+                          }}
+                        >
+                          {!Number.isNaN(parsedLat) && !Number.isNaN(parsedLng) && (
+                            <Marker position={{ lat: parsedLat, lng: parsedLng }} />
+                          )}
+                        </GoogleMap>
+                      </div>
+                    )}
                   </div>
                   {locationStatus && (
                     <p className="mt-2 text-xs text-gray-600">{locationStatus}</p>
