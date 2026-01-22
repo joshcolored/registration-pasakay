@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { database } from '@/lib/firebase';
 import { ref, onValue, off } from 'firebase/database';
@@ -21,6 +21,7 @@ type FoodOrder = {
   driverId?: string;
   driverName?: string;
   items: OrderItem[];
+  specialInstructions?: string;
   subtotal: number;
   deliveryFee: number;
   platformCommission: number;
@@ -37,7 +38,7 @@ type OrderItem = {
   price: number;
   variantName?: string;
   variantPriceAdjustment?: number;
-  addons?: { price: number }[];
+  addons?: { name?: string; price: number }[];
 };
 
 export default function FoodOrdersPage() {
@@ -121,7 +122,10 @@ export default function FoodOrdersPage() {
             variantName: item?.variantName,
             variantPriceAdjustment: Number(item?.variantPriceAdjustment || 0),
             addons: Array.isArray(item?.addons)
-              ? item.addons.map((addon: any) => ({ price: Number(addon?.price || 0) }))
+              ? item.addons.map((addon: any) => ({
+                  name: addon?.name || addon?.label,
+                  price: Number(addon?.price || 0),
+                }))
               : undefined,
           }));
           list.push({
@@ -129,6 +133,12 @@ export default function FoodOrdersPage() {
             status: value.status || 'pending',
             merchantName: value.merchantName || 'N/A',
             customerName: value.customerName || 'N/A',
+            specialInstructions:
+              value.specialInstructions ||
+              value.special_instructions ||
+              value.customerNotes ||
+              value.notes ||
+              '',
             driverId:
               value.driverId ||
               value.driver_id ||
@@ -466,30 +476,68 @@ export default function FoodOrdersPage() {
                 </tr>
               ) : (
                 filtered.map((order) => (
-                  <tr key={order.orderId} className="border-b hover:bg-gray-50 text-sm">
-                    <td className="py-3 px-4 font-mono text-gray-800 break-all">{order.orderId}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusBadge(order.status)}`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-gray-800">{order.merchantName}</td>
-                    <td className="py-3 px-4 text-gray-600">{order.customerName}</td>
-                    <td className="py-3 px-4 text-gray-600">
-                      {(() => {
-                        const name = (order.driverName || '').trim();
-                        if (name) return name;
-                        if (order.driverId) return driverNames[order.driverId] || order.driverId;
-                        return '-';
-                      })()}
-                    </td>
-                    <td className="py-3 px-4 text-gray-800">{formatCurrency(order.deliveryFee)}</td>
-                    <td className="py-3 px-4 text-gray-800">{formatCurrency(order.platformCommission)}</td>
-                    <td className="py-3 px-4 text-gray-800">{formatCurrency(order.driverPayout)}</td>
-                    <td className="py-3 px-4 text-gray-800">{formatCurrency(order.totalAmount)}</td>
-                    <td className="py-3 px-4 text-gray-600">{formatDate(order.createdAt)}</td>
-                    <td className="py-3 px-4 text-gray-600">{formatDate(order.deliveredAt)}</td>
-                  </tr>
+                  <Fragment key={order.orderId}>
+                    <tr className="border-b hover:bg-gray-50 text-sm">
+                      <td className="py-3 px-4 font-mono text-gray-800 break-all">{order.orderId}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusBadge(order.status)}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-gray-800">{order.merchantName}</td>
+                      <td className="py-3 px-4 text-gray-600">{order.customerName}</td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {(() => {
+                          const name = (order.driverName || '').trim();
+                          if (name) return name;
+                          if (order.driverId) return driverNames[order.driverId] || order.driverId;
+                          return '-';
+                        })()}
+                      </td>
+                      <td className="py-3 px-4 text-gray-800">{formatCurrency(order.deliveryFee)}</td>
+                      <td className="py-3 px-4 text-gray-800">{formatCurrency(order.platformCommission)}</td>
+                      <td className="py-3 px-4 text-gray-800">{formatCurrency(order.driverPayout)}</td>
+                      <td className="py-3 px-4 text-gray-800">{formatCurrency(order.totalAmount)}</td>
+                      <td className="py-3 px-4 text-gray-600">{formatDate(order.createdAt)}</td>
+                      <td className="py-3 px-4 text-gray-600">{formatDate(order.deliveredAt)}</td>
+                    </tr>
+                    <tr className="border-b bg-gray-50 text-xs text-gray-600">
+                      <td colSpan={11} className="px-4 py-3">
+                        <div className="space-y-2">
+                          <div>
+                            <span className="font-semibold text-gray-700">Items:</span>
+                            <ul className="mt-1 space-y-1">
+                              {order.items.map((item, index) => (
+                                <li key={`${order.orderId}-${item.itemId}-${index}`}>
+                                  <span className="font-semibold">{item.quantity}x</span> {item.name}
+                                  {item.variantName ? ` (${item.variantName})` : ''}
+                                  {item.addons && item.addons.length > 0 ? (
+                                    <span className="text-gray-500">
+                                      {' '}
+                                      - addons:{' '}
+                                      {item.addons
+                                        .map((addon) =>
+                                          addon.name
+                                            ? `${addon.name} (+${formatCurrency(addon.price)})`
+                                            : `+${formatCurrency(addon.price)}`
+                                        )
+                                        .join(', ')}
+                                    </span>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          {order.specialInstructions ? (
+                            <div>
+                              <span className="font-semibold text-gray-700">Special instructions:</span>{' '}
+                              {order.specialInstructions}
+                            </div>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  </Fragment>
                 ))
               )}
             </tbody>
