@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, get, onValue, update } from 'firebase/database';
+import { ref, get, onValue, update, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { User, Driver } from '@/types';
-import { Search, Car, UserCheck, UserX, Mail, Phone, Calendar, MapPin, XCircle, RotateCcw } from 'lucide-react';
+import { Search, Car, UserCheck, UserX, Mail, Phone, Calendar, MapPin, XCircle, RotateCcw, Trash2 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 
 interface DriverWithUser extends Driver {
@@ -21,6 +21,7 @@ export default function DriversPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'online' | 'offline'>('all');
   const [expiringDriverId, setExpiringDriverId] = useState<string | null>(null);
   const [restoringDriverId, setRestoringDriverId] = useState<string | null>(null);
+  const [deletingDriverId, setDeletingDriverId] = useState<string | null>(null);
 
   const expireDriverSubscription = async (driverId: string, driverName: string, driver: DriverWithUser) => {
     const confirmed = window.confirm(
@@ -111,6 +112,34 @@ export default function DriversPage() {
       alert('Failed to restore subscription. Please try again.');
     } finally {
       setRestoringDriverId(null);
+    }
+  };
+
+  const deleteDriverAccount = async (driver: DriverWithUser) => {
+    const driverName = driver.user?.name || 'this driver';
+    const confirmed = window.confirm(
+      `Delete ${driverName}?\n\nThis will remove the driver and user records. This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    const driverId = driver.driverId;
+    const userId = driver.userId || driver.driverId;
+
+    setDeletingDriverId(driverId);
+
+    try {
+      await Promise.all([
+        remove(ref(database, `drivers/${driverId}`)),
+        remove(ref(database, `users/${userId}`)),
+      ]);
+
+      alert(`${driverName} has been deleted.`);
+    } catch (error) {
+      console.error('Error deleting driver:', error);
+      alert('Failed to delete driver. Please try again.');
+    } finally {
+      setDeletingDriverId(null);
     }
   };
 
@@ -610,6 +639,24 @@ export default function DriversPage() {
                               )}
                             </button>
                           )}
+
+                          <button
+                            onClick={() => deleteDriverAccount(driver)}
+                            disabled={deletingDriverId === driver.driverId}
+                            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-800 hover:bg-black disabled:bg-gray-500 text-white text-xs font-semibold rounded-lg transition-colors"
+                          >
+                            {deletingDriverId === driver.driverId ? (
+                              <>
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                <span>Deleting...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Delete</span>
+                              </>
+                            )}
+                          </button>
                         </div>
                       </td>
                     </tr>

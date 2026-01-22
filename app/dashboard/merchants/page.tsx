@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ref, onValue, update } from 'firebase/database';
+import { ref, onValue, update, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { 
   Store, Search, CheckCircle, XCircle, Clock, Phone, Mail, 
   MapPin, Calendar, FileText, Eye, User, Star, ShoppingBag,
-  AlertCircle, X
+  AlertCircle, X, Trash2
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 
@@ -65,6 +65,7 @@ export default function MerchantsPage() {
   const [viewingDocument, setViewingDocument] = useState<string | null>(null);
   const [menuItemsByMerchant, setMenuItemsByMerchant] = useState<Record<string, MenuItem[]>>({});
   const [expandedMerchants, setExpandedMerchants] = useState<Record<string, boolean>>({});
+  const [deletingMerchantId, setDeletingMerchantId] = useState<string | null>(null);
 
   useEffect(() => {
     const merchantsRef = ref(database, 'merchants');
@@ -238,6 +239,35 @@ export default function MerchantsPage() {
     const icon = categoryIcons[category] || '🏪';
     const name = category?.charAt(0).toUpperCase() + category?.slice(1) || 'Unknown';
     return `${icon} ${name}`;
+  };
+
+  const deleteMerchantAccount = async (merchant: Merchant) => {
+    const confirmed = window.confirm(
+      `Delete ${merchant.businessName}?\n\nThis will remove the merchant, user, and menu items. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingMerchantId(merchant.uid);
+
+    try {
+      const menuItems = menuItemsByMerchant[merchant.uid] || [];
+      const menuItemDeletes = menuItems.map((item) =>
+        remove(ref(database, `menu_items/${item.id}`))
+      );
+
+      await Promise.all([
+        remove(ref(database, `merchants/${merchant.uid}`)),
+        remove(ref(database, `users/${merchant.uid}`)),
+        ...menuItemDeletes,
+      ]);
+
+      alert(`${merchant.businessName} has been deleted.`);
+    } catch (error) {
+      console.error('Error deleting merchant:', error);
+      alert('Failed to delete merchant. Please try again.');
+    } finally {
+      setDeletingMerchantId(null);
+    }
   };
 
   const toggleMenuItems = (merchantId: string) => {
@@ -570,6 +600,24 @@ export default function MerchantsPage() {
                         Suspend
                       </button>
                     )}
+
+                    <button
+                      onClick={() => deleteMerchantAccount(merchant)}
+                      disabled={deletingMerchantId === merchant.uid}
+                      className="flex items-center justify-center gap-1 px-3 py-2 text-sm bg-gray-800 text-white rounded-lg hover:bg-black transition-colors disabled:opacity-50"
+                    >
+                      {deletingMerchantId === merchant.uid ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                          <span>Deleting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
