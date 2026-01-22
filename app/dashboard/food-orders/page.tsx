@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -192,10 +192,10 @@ export default function FoodOrdersPage() {
   const deliveryFeeTotal = delivered.reduce((s, o) => s + o.deliveryFee, 0);
 
   const formatCurrency = (n: number) =>
-    `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `PHP ${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const formatDate = (ts?: number) => {
-    if (!ts) return '—';
+    if (!ts) return '-';
     return new Date(ts).toLocaleString('en-PH', {
       month: 'short',
       day: 'numeric',
@@ -480,7 +480,7 @@ export default function FoodOrdersPage() {
                         const name = (order.driverName || '').trim();
                         if (name) return name;
                         if (order.driverId) return driverNames[order.driverId] || order.driverId;
-                        return '—';
+                        return '-';
                       })()}
                     </td>
                     <td className="py-3 px-4 text-gray-800">{formatCurrency(order.deliveryFee)}</td>
