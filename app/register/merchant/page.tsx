@@ -45,6 +45,9 @@ export default function MerchantRegistrationPage() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [locationLat, setLocationLat] = useState('');
+  const [locationLng, setLocationLng] = useState('');
+  const [locationStatus, setLocationStatus] = useState('');
 
   // Form fields
   const [formData, setFormData] = useState({
@@ -92,6 +95,30 @@ export default function MerchantRegistrationPage() {
     }
   };
 
+  const handleUseCurrentLocation = () => {
+    setLocationStatus('');
+    if (!navigator.geolocation) {
+      setLocationStatus('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationLat(position.coords.latitude.toFixed(6));
+        setLocationLng(position.coords.longitude.toFixed(6));
+        setLocationStatus('Location captured.');
+      },
+      (err) => {
+        setLocationStatus(err.message || 'Failed to get location.');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  };
+
   // Upload file to Cloudinary
   const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
     const formData = new FormData();
@@ -137,6 +164,13 @@ export default function MerchantRegistrationPage() {
 
     if (!formData.phone.match(/^09\d{9}$/)) {
       setError('Phone number must be in format 09XX-XXX-XXXX');
+      return;
+    }
+
+    const parsedLat = parseFloat(locationLat);
+    const parsedLng = parseFloat(locationLng);
+    if (Number.isNaN(parsedLat) || Number.isNaN(parsedLng)) {
+      setError('Please use the location button to capture your business location.');
       return;
     }
 
@@ -212,8 +246,8 @@ export default function MerchantRegistrationPage() {
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
-        latitude: 0.0,
-        longitude: 0.0,
+        latitude: parsedLat,
+        longitude: parsedLng,
         category: formData.category,
         logoUrl: logoUrl || null,
         description: formData.description || null,
@@ -462,6 +496,48 @@ export default function MerchantRegistrationPage() {
                     placeholder="Complete business address"
                     required
                   />
+                </div>
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Business Location</p>
+                      <p className="text-xs text-gray-500">Use your device location for delivery fee calculations.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleUseCurrentLocation}
+                      className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                    >
+                      Use Current Location
+                    </button>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Latitude</label>
+                      <input
+                        type="text"
+                        value={locationLat}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-gray-50"
+                        placeholder="Use current location"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Longitude</label>
+                      <input
+                        type="text"
+                        value={locationLng}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-gray-50"
+                        placeholder="Use current location"
+                        required
+                      />
+                    </div>
+                  </div>
+                  {locationStatus && (
+                    <p className="mt-2 text-xs text-gray-600">{locationStatus}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
