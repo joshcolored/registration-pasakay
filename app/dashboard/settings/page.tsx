@@ -29,6 +29,10 @@ interface SubscriptionSettings {
   oneMonthDays: number;
   threeMonthsDays: number;
   isEnabled: boolean;
+  oneMonthDescription?: string;
+  threeMonthsDescription?: string;
+  oneMonthImageUrl?: string;
+  threeMonthsImageUrl?: string;
 }
 
 interface SmtpSettings {
@@ -49,10 +53,15 @@ export default function SettingsPage() {
   const [adminUserId, setAdminUserId] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingPlanImage, setUploadingPlanImage] = useState<'one' | 'three' | null>(null);
   const [selectedQrCode, setSelectedQrCode] = useState<File | null>(null);
   const [qrCodePreview, setQrCodePreview] = useState<string | null>(null);
   const [selectedLogo, setSelectedLogo] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [selectedOneMonthImage, setSelectedOneMonthImage] = useState<File | null>(null);
+  const [oneMonthImagePreview, setOneMonthImagePreview] = useState<string | null>(null);
+  const [selectedThreeMonthImage, setSelectedThreeMonthImage] = useState<File | null>(null);
+  const [threeMonthImagePreview, setThreeMonthImagePreview] = useState<string | null>(null);
   const [showChangeEmailDialog, setShowChangeEmailDialog] = useState(false);
   const [changeEmailData, setChangeEmailData] = useState({
     currentPassword: '',
@@ -103,6 +112,10 @@ export default function SettingsPage() {
     oneMonthDays: 30,
     threeMonthsDays: 90,
     isEnabled: true,
+    oneMonthDescription: '',
+    threeMonthsDescription: '',
+    oneMonthImageUrl: '',
+    threeMonthsImageUrl: '',
   });
 
   const [smtpSettings, setSmtpSettings] = useState<SmtpSettings>({
@@ -252,6 +265,10 @@ export default function SettingsPage() {
           oneMonthDays: data.oneMonthDays || 30,
           threeMonthsDays: data.threeMonthsDays || 90,
           isEnabled: data.isEnabled !== false,
+          oneMonthDescription: data.oneMonthDescription || '',
+          threeMonthsDescription: data.threeMonthsDescription || '',
+          oneMonthImageUrl: data.oneMonthImageUrl || '',
+          threeMonthsImageUrl: data.threeMonthsImageUrl || '',
         });
       }
 
@@ -598,6 +615,10 @@ export default function SettingsPage() {
         oneMonthDays: subscriptionSettings.oneMonthDays,
         threeMonthsDays: subscriptionSettings.threeMonthsDays,
         isEnabled: subscriptionSettings.isEnabled,
+        oneMonthDescription: subscriptionSettings.oneMonthDescription || '',
+        threeMonthsDescription: subscriptionSettings.threeMonthsDescription || '',
+        oneMonthImageUrl: subscriptionSettings.oneMonthImageUrl || '',
+        threeMonthsImageUrl: subscriptionSettings.threeMonthsImageUrl || '',
         updatedAt: new Date().toISOString()
       });
       alert('Subscription settings saved successfully!');
@@ -748,6 +769,143 @@ export default function SettingsPage() {
       alert('Failed to remove logo');
     }
     setSaving(false);
+  };
+
+  const handlePlanImageSelect = (plan: 'one' | 'three', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (plan === 'one') {
+        setSelectedOneMonthImage(file);
+        setOneMonthImagePreview(reader.result as string);
+      } else {
+        setSelectedThreeMonthImage(file);
+        setThreeMonthImagePreview(reader.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadPlanImage = async (plan: 'one' | 'three') => {
+    const selectedFile = plan === 'one' ? selectedOneMonthImage : selectedThreeMonthImage;
+    if (!selectedFile) {
+      alert('Please select an image first');
+      return;
+    }
+
+    if (!confirm('Upload this plan image?')) return;
+
+    setUploadingPlanImage(plan);
+    try {
+      let imageUrl = '';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('upload_preset', 'pasakay_gcash_qr');
+        formData.append('folder', 'subscription_plans');
+
+        const response = await fetch(
+          'https://api.cloudinary.com/v1_1/drvtezcke/image/upload',
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          imageUrl = data.secure_url;
+        } else {
+          const errorData = await response.json();
+          console.error('Cloudinary error:', errorData);
+          throw new Error(errorData.error?.message || 'Cloudinary upload failed');
+        }
+      } catch (cloudinaryError) {
+        console.log('Cloudinary failed, using base64 fallback:', cloudinaryError);
+        const reader = new FileReader();
+        imageUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+      }
+
+      if (!imageUrl) {
+        throw new Error('Failed to process image');
+      }
+
+      const subscriptionRef = ref(database, 'settings/subscription');
+      await update(subscriptionRef, {
+        ...(plan === 'one' ? { oneMonthImageUrl: imageUrl } : { threeMonthsImageUrl: imageUrl }),
+        updatedAt: new Date().toISOString(),
+      });
+
+      setSubscriptionSettings({
+        ...subscriptionSettings,
+        ...(plan === 'one' ? { oneMonthImageUrl: imageUrl } : { threeMonthsImageUrl: imageUrl }),
+      });
+
+      if (plan === 'one') {
+        setSelectedOneMonthImage(null);
+        setOneMonthImagePreview(null);
+      } else {
+        setSelectedThreeMonthImage(null);
+        setThreeMonthImagePreview(null);
+      }
+
+      alert('Plan image uploaded successfully!');
+    } catch (error: any) {
+      console.error('Error uploading plan image:', error);
+      alert('Failed to upload plan image: ' + (error.message || 'Unknown error'));
+    } finally {
+      setUploadingPlanImage(null);
+    }
+  };
+
+  const handleRemovePlanImage = async (plan: 'one' | 'three') => {
+    if (!confirm('Remove the plan image?')) return;
+
+    setSaving(true);
+    try {
+      const subscriptionRef = ref(database, 'settings/subscription');
+      await update(subscriptionRef, {
+        ...(plan === 'one' ? { oneMonthImageUrl: '' } : { threeMonthsImageUrl: '' }),
+        updatedAt: new Date().toISOString(),
+      });
+
+      setSubscriptionSettings({
+        ...subscriptionSettings,
+        ...(plan === 'one' ? { oneMonthImageUrl: '' } : { threeMonthsImageUrl: '' }),
+      });
+
+      if (plan === 'one') {
+        setSelectedOneMonthImage(null);
+        setOneMonthImagePreview(null);
+      } else {
+        setSelectedThreeMonthImage(null);
+        setThreeMonthImagePreview(null);
+      }
+
+      alert('Plan image removed successfully!');
+    } catch (error) {
+      console.error('Error removing plan image:', error);
+      alert('Failed to remove plan image');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleChangeEmail = async () => {
@@ -1272,6 +1430,75 @@ export default function SettingsPage() {
                     placeholder="30"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">Plan Description</label>
+                  <textarea
+                    value={subscriptionSettings.oneMonthDescription || ''}
+                    onChange={(e) => setSubscriptionSettings({ ...subscriptionSettings, oneMonthDescription: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-black font-semibold placeholder-gray-400"
+                    rows={3}
+                    placeholder="Short details for drivers"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">Plan Image</label>
+                  {(subscriptionSettings.oneMonthImageUrl && !oneMonthImagePreview) || oneMonthImagePreview ? (
+                    <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
+                      <img
+                        src={oneMonthImagePreview || subscriptionSettings.oneMonthImageUrl || ''}
+                        alt="1 Month Plan"
+                        className="w-full h-40 object-cover rounded-lg"
+                      />
+                      <div className="grid grid-cols-2 gap-2 mt-3">
+                        {oneMonthImagePreview ? (
+                          <button
+                            onClick={() => handleUploadPlanImage('one')}
+                            disabled={uploadingPlanImage === 'one'}
+                            className="flex items-center justify-center space-x-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition disabled:opacity-50"
+                          >
+                            <Upload className="w-4 h-4" />
+                            <span className="font-semibold">{uploadingPlanImage === 'one' ? 'Uploading...' : 'Upload'}</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRemovePlanImage('one')}
+                            className="flex items-center justify-center space-x-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+                          >
+                            <X className="w-4 h-4" />
+                            <span className="font-semibold">Remove</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedOneMonthImage(null);
+                            setOneMonthImagePreview(null);
+                          }}
+                          className="flex items-center justify-center space-x-2 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition"
+                        >
+                          <X className="w-4 h-4" />
+                          <span className="font-semibold">Cancel</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center">
+                      <input
+                        type="file"
+                        id="oneMonthImageInput"
+                        accept="image/*"
+                        onChange={(e) => handlePlanImageSelect('one', e)}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="oneMonthImageInput"
+                        className="inline-flex items-center space-x-2 bg-black text-white px-6 py-2.5 rounded-lg hover:bg-gray-800 transition cursor-pointer text-sm"
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span className="font-semibold">Upload Image</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1304,6 +1531,75 @@ export default function SettingsPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-black font-semibold"
                     placeholder="90"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">Plan Description</label>
+                  <textarea
+                    value={subscriptionSettings.threeMonthsDescription || ''}
+                    onChange={(e) => setSubscriptionSettings({ ...subscriptionSettings, threeMonthsDescription: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-black font-semibold placeholder-gray-400"
+                    rows={3}
+                    placeholder="Short details for drivers"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">Plan Image</label>
+                  {(subscriptionSettings.threeMonthsImageUrl && !threeMonthImagePreview) || threeMonthImagePreview ? (
+                    <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
+                      <img
+                        src={threeMonthImagePreview || subscriptionSettings.threeMonthsImageUrl || ''}
+                        alt="3 Months Plan"
+                        className="w-full h-40 object-cover rounded-lg"
+                      />
+                      <div className="grid grid-cols-2 gap-2 mt-3">
+                        {threeMonthImagePreview ? (
+                          <button
+                            onClick={() => handleUploadPlanImage('three')}
+                            disabled={uploadingPlanImage === 'three'}
+                            className="flex items-center justify-center space-x-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition disabled:opacity-50"
+                          >
+                            <Upload className="w-4 h-4" />
+                            <span className="font-semibold">{uploadingPlanImage === 'three' ? 'Uploading...' : 'Upload'}</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRemovePlanImage('three')}
+                            className="flex items-center justify-center space-x-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+                          >
+                            <X className="w-4 h-4" />
+                            <span className="font-semibold">Remove</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedThreeMonthImage(null);
+                            setThreeMonthImagePreview(null);
+                          }}
+                          className="flex items-center justify-center space-x-2 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition"
+                        >
+                          <X className="w-4 h-4" />
+                          <span className="font-semibold">Cancel</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center">
+                      <input
+                        type="file"
+                        id="threeMonthImageInput"
+                        accept="image/*"
+                        onChange={(e) => handlePlanImageSelect('three', e)}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="threeMonthImageInput"
+                        className="inline-flex items-center space-x-2 bg-black text-white px-6 py-2.5 rounded-lg hover:bg-gray-800 transition cursor-pointer text-sm"
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span className="font-semibold">Upload Image</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
                 {calculateSavings() > 0 && (
                   <div className="bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-bold">
