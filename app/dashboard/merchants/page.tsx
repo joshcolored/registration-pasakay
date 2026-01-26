@@ -64,6 +64,9 @@ export default function MerchantsPage() {
   const [processing, setProcessing] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<string | null>(null);
   const [menuItemsByMerchant, setMenuItemsByMerchant] = useState<Record<string, MenuItem[]>>({});
+  const [merchantStats, setMerchantStats] = useState<
+    Record<string, { orderCount: number; ratingAvg: number }>
+  >({});
   const [expandedMerchants, setExpandedMerchants] = useState<Record<string, boolean>>({});
   const [deletingMerchantId, setDeletingMerchantId] = useState<string | null>(null);
 
@@ -123,6 +126,52 @@ export default function MerchantsPage() {
       },
       (error) => {
         console.error('Error loading menu items:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const ordersRef = ref(database, 'food_orders');
+    const unsubscribe = onValue(
+      ordersRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setMerchantStats({});
+          return;
+        }
+        const data = snapshot.val();
+        const stats: Record<string, { orderCount: number; ratingSum: number; ratingCount: number }> = {};
+        Object.values<any>(data).forEach((order: any) => {
+          const merchantId = order?.merchantId || order?.merchant_id || '';
+          if (!merchantId) return;
+          const status = (order?.status || '').toLowerCase();
+          if (status === 'cancelled') return;
+
+          if (!stats[merchantId]) {
+            stats[merchantId] = { orderCount: 0, ratingSum: 0, ratingCount: 0 };
+          }
+          stats[merchantId].orderCount += 1;
+
+          const ratingValue = Number(order?.merchantRating || order?.merchant_rating || 0);
+          if (ratingValue > 0) {
+            stats[merchantId].ratingSum += ratingValue;
+            stats[merchantId].ratingCount += 1;
+          }
+        });
+
+        const normalized: Record<string, { orderCount: number; ratingAvg: number }> = {};
+        Object.entries(stats).forEach(([merchantId, value]) => {
+          normalized[merchantId] = {
+            orderCount: value.orderCount,
+            ratingAvg: value.ratingCount > 0 ? value.ratingSum / value.ratingCount : 0,
+          };
+        });
+        setMerchantStats(normalized);
+      },
+      (error) => {
+        console.error('Error loading food orders:', error);
       }
     );
 
@@ -443,14 +492,23 @@ export default function MerchantsPage() {
                       {/* Stats for approved merchants */}
                       {merchant.status === 'approved' && (
                         <div className="flex items-center gap-4 mt-3">
+                          {(() => {
+                            const stats = merchantStats[merchant.uid];
+                            const rating = stats?.ratingAvg ?? merchant.rating ?? 0;
+                            const orders = stats?.orderCount ?? merchant.totalOrders ?? 0;
+                            return (
+                              <>
                           <div className="flex items-center gap-1 text-sm">
                             <Star className="w-4 h-4 text-yellow-500" />
-                            <span className="font-medium">{merchant.rating?.toFixed(1) || '0.0'}</span>
+                                <span className="font-medium">{rating.toFixed(1)}</span>
                           </div>
                           <div className="flex items-center gap-1 text-sm text-gray-600">
                             <ShoppingBag className="w-4 h-4" />
-                            <span>{merchant.totalOrders || 0} orders</span>
+                                <span>{orders} orders</span>
                           </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       )}
 

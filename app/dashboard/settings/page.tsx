@@ -6,7 +6,7 @@ import { ref, get, update } from 'firebase/database';
 import { database, auth } from '@/lib/firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updateEmail, sendEmailVerification } from 'firebase/auth';
 import { FareSettings, SupportSettings, AppSettings } from '@/types';
-import { Save, DollarSign, Phone, Mail, User, CreditCard, Upload, X, Edit, Facebook, Clock, Headphones, ImageIcon, Wallet, Server, Lock, Send, Eye, EyeOff } from 'lucide-react';
+import { Save, DollarSign, Phone, Mail, User, CreditCard, Upload, X, Edit, Facebook, Clock, Headphones, ImageIcon, Wallet, Server, Lock, Send, Eye, EyeOff, Percent } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 
 interface AdminProfile {
@@ -48,6 +48,11 @@ interface SmtpSettings {
   fromName: string;
   secure: boolean;
   hasPass?: boolean;
+}
+
+interface CommissionSettings {
+  driverCommissionRate: number;
+  merchantCommissionRate: number;
 }
 
 export default function SettingsPage() {
@@ -139,6 +144,11 @@ export default function SettingsPage() {
     threeMonthsImageUrl: '',
     oneMonthFeatures: defaultOneMonthFeatures,
     threeMonthsFeatures: defaultThreeMonthsFeatures,
+  });
+
+  const [commissionSettings, setCommissionSettings] = useState<CommissionSettings>({
+    driverCommissionRate: 0.1,
+    merchantCommissionRate: 0.1,
   });
 
   const parseFeatureLines = (value: string) =>
@@ -322,6 +332,16 @@ export default function SettingsPage() {
           threeMonthsImageUrl: data.threeMonthsImageUrl || '',
           oneMonthFeatures,
           threeMonthsFeatures,
+        });
+      }
+
+      const commissionRef = ref(database, 'settings/commission');
+      const commissionSnapshot = await get(commissionRef);
+      if (commissionSnapshot.exists()) {
+        const data = commissionSnapshot.val();
+        setCommissionSettings({
+          driverCommissionRate: Number(data.driverCommissionRate ?? 0.1),
+          merchantCommissionRate: Number(data.merchantCommissionRate ?? 0.1),
         });
       }
 
@@ -824,6 +844,38 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error removing logo:', error);
       alert('Failed to remove logo');
+    }
+    setSaving(false);
+  };
+
+  const handleSaveCommissionSettings = async () => {
+    if (!confirm('Save commission settings?')) return;
+
+    const driverRate = Number(commissionSettings.driverCommissionRate);
+    const merchantRate = Number(commissionSettings.merchantCommissionRate);
+
+    if (Number.isNaN(driverRate) || Number.isNaN(merchantRate)) {
+      alert('Please enter valid commission rates');
+      return;
+    }
+
+    if (driverRate < 0 || driverRate > 1 || merchantRate < 0 || merchantRate > 1) {
+      alert('Commission rates must be between 0% and 100%');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const commissionRef = ref(database, 'settings/commission');
+      await update(commissionRef, {
+        driverCommissionRate: driverRate,
+        merchantCommissionRate: merchantRate,
+        updatedAt: new Date().toISOString(),
+      });
+      alert('Commission settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving commission settings:', error);
+      alert('Failed to save commission settings');
     }
     setSaving(false);
   };
@@ -1884,6 +1936,84 @@ export default function SettingsPage() {
                 >
                   <Save className="w-5 h-5" />
                   <span>{saving ? 'Saving...' : 'Save Fare Settings'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Commission Settings */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <Percent className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Commission Settings</h2>
+                <p className="text-sm text-gray-600">Driver and merchant commission rates</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-black mb-2">
+                  Driver Commission (Trip + Delivery Fee)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={(commissionSettings.driverCommissionRate * 100).toFixed(1)}
+                    onChange={(e) => {
+                      const value = Math.max(0, Math.min(100, Number(e.target.value || 0)));
+                      setCommissionSettings({
+                        ...commissionSettings,
+                        driverCommissionRate: value / 100,
+                      });
+                    }}
+                    className="w-full pr-12 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-black font-semibold"
+                    placeholder="10"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">%</span>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">Applied to trip fare and delivery fee totals</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-black mb-2">
+                  Merchant Item Commission
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={(commissionSettings.merchantCommissionRate * 100).toFixed(1)}
+                    onChange={(e) => {
+                      const value = Math.max(0, Math.min(100, Number(e.target.value || 0)));
+                      setCommissionSettings({
+                        ...commissionSettings,
+                        merchantCommissionRate: value / 100,
+                      });
+                    }}
+                    className="w-full pr-12 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-black font-semibold"
+                    placeholder="10"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">%</span>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">Applied to delivered order item totals</p>
+              </div>
+
+              <div className="pt-4 border-t">
+                <button
+                  onClick={handleSaveCommissionSettings}
+                  disabled={saving}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg font-semibold hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  <Save className="w-5 h-5" />
+                  <span>{saving ? 'Saving...' : 'Save Commission Settings'}</span>
                 </button>
               </div>
             </div>

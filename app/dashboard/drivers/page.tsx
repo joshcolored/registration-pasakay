@@ -16,12 +16,14 @@ export default function DriversPage() {
   const router = useRouter();
   const [drivers, setDrivers] = useState<DriverWithUser[]>([]);
   const [filteredDrivers, setFilteredDrivers] = useState<DriverWithUser[]>([]);
+  const [deliveryTotals, setDeliveryTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'online' | 'offline'>('all');
   const [expiringDriverId, setExpiringDriverId] = useState<string | null>(null);
   const [restoringDriverId, setRestoringDriverId] = useState<string | null>(null);
   const [deletingDriverId, setDeletingDriverId] = useState<string | null>(null);
+  const [driverCommissionRate, setDriverCommissionRate] = useState(0.1);
 
   const expireDriverSubscription = async (driverId: string, driverName: string, driver: DriverWithUser) => {
     const confirmed = window.confirm(
@@ -154,6 +156,8 @@ export default function DriversPage() {
     // Set up real-time listeners for drivers
     const driversRef = ref(database, 'drivers');
     const usersRef = ref(database, 'users');
+    const foodOrdersRef = ref(database, 'food_orders');
+    const commissionRef = ref(database, 'settings/commission');
 
     // Listen to drivers changes in real-time
     const unsubscribeDrivers = onValue(driversRef, async (driversSnapshot) => {
@@ -226,11 +230,56 @@ export default function DriversPage() {
       }
     });
 
+    const unsubscribeFoodOrders = onValue(foodOrdersRef, (foodOrdersSnapshot) => {
+      if (!foodOrdersSnapshot.exists()) {
+        setDeliveryTotals({});
+        return;
+      }
+
+      const data = foodOrdersSnapshot.val();
+      const totals: Record<string, number> = {};
+
+      Object.values<any>(data).forEach((order: any) => {
+        if ((order?.status || '').toLowerCase() !== 'delivered') return;
+        const driverId =
+          order?.driverId ||
+          order?.driver_id ||
+          order?.assignedDriverId ||
+          order?.assignedDriver ||
+          '';
+        if (!driverId) return;
+
+        let fee = Number(order?.deliveryFee || 0);
+        if (fee <= 0) {
+          const payout = Number(order?.driverPayout || 0);
+          if (payout > 0) {
+            fee = payout / (1 - driverCommissionRate);
+          }
+        }
+
+        if (fee <= 0) return;
+        totals[driverId] = (totals[driverId] || 0) + fee;
+      });
+
+      setDeliveryTotals(totals);
+    });
+
+    const unsubscribeCommission = onValue(commissionRef, (snapshot) => {
+      if (!snapshot.exists()) return;
+      const data = snapshot.val() || {};
+      const rate = Number(data.driverCommissionRate);
+      if (!Number.isNaN(rate)) {
+        setDriverCommissionRate(rate);
+      }
+    });
+
     // Cleanup listener on unmount
     return () => {
       unsubscribeDrivers();
+      unsubscribeFoodOrders();
+      unsubscribeCommission();
     };
-  }, [router]);
+  }, [router, driverCommissionRate]);
 
   useEffect(() => {
     let filtered = drivers;
@@ -401,6 +450,17 @@ export default function DriversPage() {
     );
   };
 
+  const getDriverGrossEarnings = (driver: DriverWithUser) => {
+    const tripEarnings = driver.totalEarnings || 0;
+    const deliveryEarnings = deliveryTotals[driver.driverId] || 0;
+    return tripEarnings + deliveryEarnings;
+  };
+
+  const getDriverCommission = (driver: DriverWithUser) => getDriverGrossEarnings(driver) * driverCommissionRate;
+
+  const getDriverNetEarnings = (driver: DriverWithUser) =>
+    getDriverGrossEarnings(driver) - getDriverCommission(driver);
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -469,7 +529,7 @@ export default function DriversPage() {
               <div>
                 <p className="text-black text-sm font-bold mb-1">Total Earnings</p>
                 <p className="text-3xl font-bold text-purple-600">
-                  ₱{drivers.reduce((sum, d) => sum + (d.totalEarnings || 0), 0).toFixed(2)}
+                  ₱{drivers.reduce((sum, d) => sum + getDriverNetEarnings(d), 0).toFixed(2)}
                 </p>
               </div>
               <Car className="w-12 h-12 text-purple-500" />
@@ -578,7 +638,14 @@ export default function DriversPage() {
                         <span className="font-semibold text-gray-800">{driver.completedTrips || 0}</span>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="font-semibold text-green-600">₱{(driver.totalEarnings || 0).toFixed(2)}</span>
+                        <div className="space-y-0.5">
+                          <div className="text-xs text-gray-500">
+                            Commission: ₱{getDriverCommission(driver).toFixed(2)}
+                          </div>
+                          <span className="font-semibold text-green-600">
+                            ₱{getDriverNetEarnings(driver).toFixed(2)}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-4 px-6">
                         {getSubscriptionInfo(driver)}

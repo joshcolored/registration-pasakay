@@ -47,11 +47,14 @@ export default function FoodOrdersPage() {
   const [menuItemImages, setMenuItemImages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>({});
+  const [driverCommissionRate, setDriverCommissionRate] = useState(0.1);
+  const [merchantCommissionRate, setMerchantCommissionRate] = useState(0.1);
 
   useEffect(() => {
     const ordersRef = ref(database, 'food_orders');
     const driversRef = ref(database, 'drivers');
     const menuItemsRef = ref(database, 'menu_items');
+    const commissionRef = ref(database, 'settings/commission');
 
     const unsubscribeDrivers = onValue(
       driversRef,
@@ -173,12 +176,28 @@ export default function FoodOrdersPage() {
       }
     );
 
+    const unsubscribeCommission = onValue(
+      commissionRef,
+      (snapshot) => {
+        if (!snapshot.exists()) return;
+        const data = snapshot.val() || {};
+        const driverRate = Number(data.driverCommissionRate);
+        const merchantRate = Number(data.merchantCommissionRate);
+        if (!Number.isNaN(driverRate)) setDriverCommissionRate(driverRate);
+        if (!Number.isNaN(merchantRate)) setMerchantCommissionRate(merchantRate);
+      },
+      (err) => {
+        console.error('Error loading commission settings', err);
+      }
+    );
+
     return () => {
       off(ordersRef);
       off(driversRef);
       off(menuItemsRef);
       unsubscribeDrivers();
       unsubscribeMenuItems();
+      unsubscribeCommission();
     };
   }, []);
 
@@ -197,9 +216,9 @@ export default function FoodOrdersPage() {
 
   const delivered = filtered.filter((o) => o.status === 'delivered');
   const deliveredCount = delivered.length;
-  const platformTotal = delivered.reduce((s, o) => s + o.platformCommission, 0);
-  const payoutTotal = delivered.reduce((s, o) => s + o.driverPayout, 0);
   const deliveryFeeTotal = delivered.reduce((s, o) => s + o.deliveryFee, 0);
+  const platformTotal = delivered.reduce((s, o) => s + o.deliveryFee * driverCommissionRate, 0);
+  const payoutTotal = delivered.reduce((s, o) => s + o.deliveryFee * (1 - driverCommissionRate), 0);
 
   const formatCurrency = (n: number) =>
     `PHP ${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -228,8 +247,6 @@ export default function FoodOrdersPage() {
     return map[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const commissionRate = 0.1;
-
   const fallbackImage =
     'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect fill="%23f3f4f6" width="64" height="64"/><text fill="%239ca3af" font-family="Arial" font-size="10" x="50%" y="50%" text-anchor="middle" dy=".3em">No image</text></svg>';
 
@@ -239,6 +256,9 @@ export default function FoodOrdersPage() {
     return base + addonsTotal;
   };
 
+  const deliveryCommission = (order: FoodOrder) => order.deliveryFee * driverCommissionRate;
+  const driverPayout = (order: FoodOrder) => order.deliveryFee * (1 - driverCommissionRate);
+
   const merchantSummaries = useMemo(() => {
     const map = new Map<
       string,
@@ -247,7 +267,6 @@ export default function FoodOrdersPage() {
         deliveredOrders: number;
         itemCount: number;
         itemsSubtotal: number;
-        platformCommission: number;
         items: Record<string, { itemId: string; name: string; quantity: number; total: number }>;
       }
     >();
@@ -261,11 +280,9 @@ export default function FoodOrdersPage() {
           deliveredOrders: 0,
           itemCount: 0,
           itemsSubtotal: 0,
-          platformCommission: 0,
           items: {},
         };
       entry.deliveredOrders += 1;
-      entry.platformCommission += order.platformCommission;
 
       let orderSubtotal = 0;
       order.items.forEach((item) => {
@@ -285,8 +302,11 @@ export default function FoodOrdersPage() {
       map.set(key, entry);
     });
 
-    return Array.from(map.values()).sort((a, b) => b.platformCommission - a.platformCommission);
-  }, [delivered]);
+    return Array.from(map.values()).sort(
+      (a, b) =>
+        b.itemsSubtotal * merchantCommissionRate - a.itemsSubtotal * merchantCommissionRate
+    );
+  }, [delivered, merchantCommissionRate]);
 
   return (
     <DashboardLayout>
@@ -398,7 +418,7 @@ export default function FoodOrdersPage() {
                           Items Total: {formatCurrency(summary.itemsSubtotal)}
                         </span>
                         <span className="px-2 py-1 rounded bg-amber-50 text-amber-700">
-                          Commission: {formatCurrency(summary.platformCommission)}
+                          Commission: {formatCurrency(summary.itemsSubtotal * merchantCommissionRate)}
                         </span>
                       </div>
                     </div>
@@ -406,14 +426,17 @@ export default function FoodOrdersPage() {
                       <div className="mt-3">
                         <p className="text-xs font-semibold text-gray-600">Top Items</p>
                         <div className="mt-2 space-y-1 text-sm text-gray-700">
-                          <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span className="flex-1">Item</span>
-                            <span className="w-12 text-right">Qty</span>
-                            <span className="w-24 text-right">Total</span>
-                            <span className="w-28 text-right">Commission</span>
+                          <div className="grid grid-cols-[minmax(0,1fr)_80px_110px_120px] items-center text-xs text-gray-500">
+                            <span>Item</span>
+                            <span className="text-right">Qty</span>
+                            <span className="text-right">Total</span>
+                            <span className="text-right">Commission</span>
                           </div>
                           {topItems.map((item) => (
-                            <div key={`${item.itemId}-${item.name}`} className="flex items-center justify-between">
+                            <div
+                              key={`${item.itemId}-${item.name}`}
+                              className="grid grid-cols-[minmax(0,1fr)_80px_110px_120px] items-center"
+                            >
                               <div className="flex items-center gap-2 min-w-0">
                                 <img
                                   src={menuItemImages[item.itemId] || fallbackImage}
@@ -426,10 +449,10 @@ export default function FoodOrdersPage() {
                                 />
                                 <span className="truncate">{item.name}</span>
                               </div>
-                              <span className="w-12 text-right text-gray-500">{item.quantity}x</span>
-                              <span className="w-24 text-right font-semibold">{formatCurrency(item.total)}</span>
-                              <span className="w-28 text-right text-amber-700">
-                                {formatCurrency(item.total * commissionRate)}
+                              <span className="text-right text-gray-500">{item.quantity}x</span>
+                              <span className="text-right font-semibold">{formatCurrency(item.total)}</span>
+                              <span className="text-right text-amber-700">
+                                {formatCurrency(item.total * merchantCommissionRate)}
                               </span>
                             </div>
                           ))}
@@ -495,8 +518,8 @@ export default function FoodOrdersPage() {
                         })()}
                       </td>
                       <td className="py-3 px-4 text-gray-800">{formatCurrency(order.deliveryFee)}</td>
-                      <td className="py-3 px-4 text-gray-800">{formatCurrency(order.platformCommission)}</td>
-                      <td className="py-3 px-4 text-gray-800">{formatCurrency(order.driverPayout)}</td>
+                      <td className="py-3 px-4 text-gray-800">{formatCurrency(deliveryCommission(order))}</td>
+                      <td className="py-3 px-4 text-gray-800">{formatCurrency(driverPayout(order))}</td>
                       <td className="py-3 px-4 text-gray-800">{formatCurrency(order.totalAmount)}</td>
                       <td className="py-3 px-4 text-gray-600">{formatDate(order.createdAt)}</td>
                       <td className="py-3 px-4 text-gray-600">{formatDate(order.deliveredAt)}</td>
