@@ -35,6 +35,8 @@ interface SubscriptionSettings {
   threeMonthsImageUrls?: string[];
   oneMonthImageUrl?: string;
   threeMonthsImageUrl?: string;
+  oneMonthFeatures?: string[];
+  threeMonthsFeatures?: string[];
 }
 
 interface SmtpSettings {
@@ -108,6 +110,21 @@ export default function SettingsPage() {
   });
 
   // Subscription Settings (stored in settings/subscription)
+  const defaultOneMonthFeatures = [
+    'Full access to all features',
+    'Accept unlimited trips',
+    'Real-time earnings tracking',
+    'Customer support',
+    'Performance analytics',
+  ];
+  const defaultThreeMonthsFeatures = [
+    'Full access to all features',
+    'Accept unlimited trips',
+    'Real-time earnings tracking',
+    'Priority customer support',
+    'Performance analytics',
+    'Exclusive promotions',
+  ];
   const [subscriptionSettings, setSubscriptionSettings] = useState<SubscriptionSettings>({
     oneMonthPrice: 150,
     threeMonthsPrice: 300,
@@ -120,7 +137,15 @@ export default function SettingsPage() {
     threeMonthsImageUrls: [],
     oneMonthImageUrl: '',
     threeMonthsImageUrl: '',
+    oneMonthFeatures: defaultOneMonthFeatures,
+    threeMonthsFeatures: defaultThreeMonthsFeatures,
   });
+
+  const parseFeatureLines = (value: string) =>
+    value
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
 
   const [smtpSettings, setSmtpSettings] = useState<SmtpSettings>({
     host: '',
@@ -269,6 +294,12 @@ export default function SettingsPage() {
         const threeMonthsImageUrls = Array.isArray(data.threeMonthsImageUrls)
           ? data.threeMonthsImageUrls.filter((url: string) => url)
           : [];
+        const oneMonthFeatures = Array.isArray(data.oneMonthFeatures)
+          ? data.oneMonthFeatures.filter((item: string) => item)
+          : defaultOneMonthFeatures;
+        const threeMonthsFeatures = Array.isArray(data.threeMonthsFeatures)
+          ? data.threeMonthsFeatures.filter((item: string) => item)
+          : defaultThreeMonthsFeatures;
 
         if (oneMonthImageUrls.length === 0 && data.oneMonthImageUrl) {
           oneMonthImageUrls.push(data.oneMonthImageUrl);
@@ -289,6 +320,8 @@ export default function SettingsPage() {
           threeMonthsImageUrls,
           oneMonthImageUrl: data.oneMonthImageUrl || '',
           threeMonthsImageUrl: data.threeMonthsImageUrl || '',
+          oneMonthFeatures,
+          threeMonthsFeatures,
         });
       }
 
@@ -641,6 +674,8 @@ export default function SettingsPage() {
         threeMonthsImageUrls: subscriptionSettings.threeMonthsImageUrls || [],
         oneMonthImageUrl: (subscriptionSettings.oneMonthImageUrls || [])[0] || '',
         threeMonthsImageUrl: (subscriptionSettings.threeMonthsImageUrls || [])[0] || '',
+        oneMonthFeatures: subscriptionSettings.oneMonthFeatures || [],
+        threeMonthsFeatures: subscriptionSettings.threeMonthsFeatures || [],
         updatedAt: new Date().toISOString()
       });
       alert('Subscription settings saved successfully!');
@@ -1480,6 +1515,21 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-bold text-black mb-2">Plan Features (one per line)</label>
+                  <textarea
+                    value={(subscriptionSettings.oneMonthFeatures || []).join('\n')}
+                    onChange={(e) =>
+                      setSubscriptionSettings({
+                        ...subscriptionSettings,
+                        oneMonthFeatures: parseFeatureLines(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-black font-semibold placeholder-gray-400"
+                    rows={6}
+                    placeholder="Full access to all features"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-bold text-black mb-2">Plan Images</label>
                   {oneMonthImagePreview ? (
                     <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
@@ -1590,6 +1640,21 @@ export default function SettingsPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-black font-semibold placeholder-gray-400"
                     rows={3}
                     placeholder="Short details for drivers"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-black mb-2">Plan Features (one per line)</label>
+                  <textarea
+                    value={(subscriptionSettings.threeMonthsFeatures || []).join('\n')}
+                    onChange={(e) =>
+                      setSubscriptionSettings({
+                        ...subscriptionSettings,
+                        threeMonthsFeatures: parseFeatureLines(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-black font-semibold placeholder-gray-400"
+                    rows={6}
+                    placeholder="Priority customer support"
                   />
                 </div>
                 <div>
