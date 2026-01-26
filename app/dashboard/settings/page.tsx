@@ -31,6 +31,8 @@ interface SubscriptionSettings {
   isEnabled: boolean;
   oneMonthDescription?: string;
   threeMonthsDescription?: string;
+  oneMonthImageUrls?: string[];
+  threeMonthsImageUrls?: string[];
   oneMonthImageUrl?: string;
   threeMonthsImageUrl?: string;
 }
@@ -114,6 +116,8 @@ export default function SettingsPage() {
     isEnabled: true,
     oneMonthDescription: '',
     threeMonthsDescription: '',
+    oneMonthImageUrls: [],
+    threeMonthsImageUrls: [],
     oneMonthImageUrl: '',
     threeMonthsImageUrl: '',
   });
@@ -259,6 +263,20 @@ export default function SettingsPage() {
       if (subscriptionSnapshot.exists()) {
         const data = subscriptionSnapshot.val();
         console.log('Loaded subscription settings:', data);
+        const oneMonthImageUrls = Array.isArray(data.oneMonthImageUrls)
+          ? data.oneMonthImageUrls.filter((url: string) => url)
+          : [];
+        const threeMonthsImageUrls = Array.isArray(data.threeMonthsImageUrls)
+          ? data.threeMonthsImageUrls.filter((url: string) => url)
+          : [];
+
+        if (oneMonthImageUrls.length === 0 && data.oneMonthImageUrl) {
+          oneMonthImageUrls.push(data.oneMonthImageUrl);
+        }
+        if (threeMonthsImageUrls.length === 0 && data.threeMonthsImageUrl) {
+          threeMonthsImageUrls.push(data.threeMonthsImageUrl);
+        }
+
         setSubscriptionSettings({
           oneMonthPrice: data.oneMonthPrice || 150,
           threeMonthsPrice: data.threeMonthsPrice || 300,
@@ -267,6 +285,8 @@ export default function SettingsPage() {
           isEnabled: data.isEnabled !== false,
           oneMonthDescription: data.oneMonthDescription || '',
           threeMonthsDescription: data.threeMonthsDescription || '',
+          oneMonthImageUrls,
+          threeMonthsImageUrls,
           oneMonthImageUrl: data.oneMonthImageUrl || '',
           threeMonthsImageUrl: data.threeMonthsImageUrl || '',
         });
@@ -617,8 +637,10 @@ export default function SettingsPage() {
         isEnabled: subscriptionSettings.isEnabled,
         oneMonthDescription: subscriptionSettings.oneMonthDescription || '',
         threeMonthsDescription: subscriptionSettings.threeMonthsDescription || '',
-        oneMonthImageUrl: subscriptionSettings.oneMonthImageUrl || '',
-        threeMonthsImageUrl: subscriptionSettings.threeMonthsImageUrl || '',
+        oneMonthImageUrls: subscriptionSettings.oneMonthImageUrls || [],
+        threeMonthsImageUrls: subscriptionSettings.threeMonthsImageUrls || [],
+        oneMonthImageUrl: (subscriptionSettings.oneMonthImageUrls || [])[0] || '',
+        threeMonthsImageUrl: (subscriptionSettings.threeMonthsImageUrls || [])[0] || '',
         updatedAt: new Date().toISOString()
       });
       alert('Subscription settings saved successfully!');
@@ -848,14 +870,23 @@ export default function SettingsPage() {
       }
 
       const subscriptionRef = ref(database, 'settings/subscription');
+      const currentUrls = plan === 'one'
+        ? (subscriptionSettings.oneMonthImageUrls || [])
+        : (subscriptionSettings.threeMonthsImageUrls || []);
+      const nextUrls = [...currentUrls, imageUrl];
+
       await update(subscriptionRef, {
-        ...(plan === 'one' ? { oneMonthImageUrl: imageUrl } : { threeMonthsImageUrl: imageUrl }),
+        ...(plan === 'one'
+          ? { oneMonthImageUrls: nextUrls, oneMonthImageUrl: nextUrls[0] || '' }
+          : { threeMonthsImageUrls: nextUrls, threeMonthsImageUrl: nextUrls[0] || '' }),
         updatedAt: new Date().toISOString(),
       });
 
       setSubscriptionSettings({
         ...subscriptionSettings,
-        ...(plan === 'one' ? { oneMonthImageUrl: imageUrl } : { threeMonthsImageUrl: imageUrl }),
+        ...(plan === 'one'
+          ? { oneMonthImageUrls: nextUrls, oneMonthImageUrl: nextUrls[0] || '' }
+          : { threeMonthsImageUrls: nextUrls, threeMonthsImageUrl: nextUrls[0] || '' }),
       });
 
       if (plan === 'one') {
@@ -875,20 +906,28 @@ export default function SettingsPage() {
     }
   };
 
-  const handleRemovePlanImage = async (plan: 'one' | 'three') => {
+  const handleRemovePlanImage = async (plan: 'one' | 'three', imageUrl: string) => {
     if (!confirm('Remove the plan image?')) return;
 
     setSaving(true);
     try {
       const subscriptionRef = ref(database, 'settings/subscription');
+      const currentUrls = plan === 'one'
+        ? (subscriptionSettings.oneMonthImageUrls || [])
+        : (subscriptionSettings.threeMonthsImageUrls || []);
+      const nextUrls = currentUrls.filter((url) => url !== imageUrl);
       await update(subscriptionRef, {
-        ...(plan === 'one' ? { oneMonthImageUrl: '' } : { threeMonthsImageUrl: '' }),
+        ...(plan === 'one'
+          ? { oneMonthImageUrls: nextUrls, oneMonthImageUrl: nextUrls[0] || '' }
+          : { threeMonthsImageUrls: nextUrls, threeMonthsImageUrl: nextUrls[0] || '' }),
         updatedAt: new Date().toISOString(),
       });
 
       setSubscriptionSettings({
         ...subscriptionSettings,
-        ...(plan === 'one' ? { oneMonthImageUrl: '' } : { threeMonthsImageUrl: '' }),
+        ...(plan === 'one'
+          ? { oneMonthImageUrls: nextUrls, oneMonthImageUrl: nextUrls[0] || '' }
+          : { threeMonthsImageUrls: nextUrls, threeMonthsImageUrl: nextUrls[0] || '' }),
       });
 
       if (plan === 'one') {
@@ -1441,33 +1480,23 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-black mb-2">Plan Image</label>
-                  {(subscriptionSettings.oneMonthImageUrl && !oneMonthImagePreview) || oneMonthImagePreview ? (
+                  <label className="block text-sm font-bold text-black mb-2">Plan Images</label>
+                  {oneMonthImagePreview ? (
                     <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
                       <img
-                        src={oneMonthImagePreview || subscriptionSettings.oneMonthImageUrl || ''}
-                        alt="1 Month Plan"
+                        src={oneMonthImagePreview}
+                        alt="1 Month Plan Preview"
                         className="w-full h-40 object-cover rounded-lg"
                       />
                       <div className="grid grid-cols-2 gap-2 mt-3">
-                        {oneMonthImagePreview ? (
-                          <button
-                            onClick={() => handleUploadPlanImage('one')}
-                            disabled={uploadingPlanImage === 'one'}
-                            className="flex items-center justify-center space-x-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition disabled:opacity-50"
-                          >
-                            <Upload className="w-4 h-4" />
-                            <span className="font-semibold">{uploadingPlanImage === 'one' ? 'Uploading...' : 'Upload'}</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleRemovePlanImage('one')}
-                            className="flex items-center justify-center space-x-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
-                          >
-                            <X className="w-4 h-4" />
-                            <span className="font-semibold">Remove</span>
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleUploadPlanImage('one')}
+                          disabled={uploadingPlanImage === 'one'}
+                          className="flex items-center justify-center space-x-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition disabled:opacity-50"
+                        >
+                          <Upload className="w-4 h-4" />
+                          <span className="font-semibold">{uploadingPlanImage === 'one' ? 'Uploading...' : 'Upload'}</span>
+                        </button>
                         <button
                           onClick={() => {
                             setSelectedOneMonthImage(null);
@@ -1481,22 +1510,43 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex justify-center">
-                      <input
-                        type="file"
-                        id="oneMonthImageInput"
-                        accept="image/*"
-                        onChange={(e) => handlePlanImageSelect('one', e)}
-                        className="hidden"
-                      />
-                      <label
-                        htmlFor="oneMonthImageInput"
-                        className="inline-flex items-center space-x-2 bg-black text-white px-6 py-2.5 rounded-lg hover:bg-gray-800 transition cursor-pointer text-sm"
-                      >
-                        <Upload className="w-4 h-4" />
-                        <span className="font-semibold">Upload Image</span>
-                      </label>
-                    </div>
+                    <>
+                      {(subscriptionSettings.oneMonthImageUrls || []).length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {(subscriptionSettings.oneMonthImageUrls || []).map((url, index) => (
+                            <div key={`${url}-${index}`} className="relative">
+                              <img
+                                src={url}
+                                alt="1 Month Plan"
+                                className="w-24 h-20 object-cover rounded-lg border border-gray-200"
+                              />
+                              <button
+                                onClick={() => handleRemovePlanImage('one', url)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex justify-center">
+                        <input
+                          type="file"
+                          id="oneMonthImageInput"
+                          accept="image/*"
+                          onChange={(e) => handlePlanImageSelect('one', e)}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="oneMonthImageInput"
+                          className="inline-flex items-center space-x-2 bg-black text-white px-6 py-2.5 rounded-lg hover:bg-gray-800 transition cursor-pointer text-sm"
+                        >
+                          <Upload className="w-4 h-4" />
+                          <span className="font-semibold">Upload Image</span>
+                        </label>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -1543,33 +1593,23 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-black mb-2">Plan Image</label>
-                  {(subscriptionSettings.threeMonthsImageUrl && !threeMonthImagePreview) || threeMonthImagePreview ? (
+                  <label className="block text-sm font-bold text-black mb-2">Plan Images</label>
+                  {threeMonthImagePreview ? (
                     <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
                       <img
-                        src={threeMonthImagePreview || subscriptionSettings.threeMonthsImageUrl || ''}
-                        alt="3 Months Plan"
+                        src={threeMonthImagePreview}
+                        alt="3 Months Plan Preview"
                         className="w-full h-40 object-cover rounded-lg"
                       />
                       <div className="grid grid-cols-2 gap-2 mt-3">
-                        {threeMonthImagePreview ? (
-                          <button
-                            onClick={() => handleUploadPlanImage('three')}
-                            disabled={uploadingPlanImage === 'three'}
-                            className="flex items-center justify-center space-x-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition disabled:opacity-50"
-                          >
-                            <Upload className="w-4 h-4" />
-                            <span className="font-semibold">{uploadingPlanImage === 'three' ? 'Uploading...' : 'Upload'}</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleRemovePlanImage('three')}
-                            className="flex items-center justify-center space-x-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
-                          >
-                            <X className="w-4 h-4" />
-                            <span className="font-semibold">Remove</span>
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleUploadPlanImage('three')}
+                          disabled={uploadingPlanImage === 'three'}
+                          className="flex items-center justify-center space-x-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition disabled:opacity-50"
+                        >
+                          <Upload className="w-4 h-4" />
+                          <span className="font-semibold">{uploadingPlanImage === 'three' ? 'Uploading...' : 'Upload'}</span>
+                        </button>
                         <button
                           onClick={() => {
                             setSelectedThreeMonthImage(null);
@@ -1583,22 +1623,43 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex justify-center">
-                      <input
-                        type="file"
-                        id="threeMonthImageInput"
-                        accept="image/*"
-                        onChange={(e) => handlePlanImageSelect('three', e)}
-                        className="hidden"
-                      />
-                      <label
-                        htmlFor="threeMonthImageInput"
-                        className="inline-flex items-center space-x-2 bg-black text-white px-6 py-2.5 rounded-lg hover:bg-gray-800 transition cursor-pointer text-sm"
-                      >
-                        <Upload className="w-4 h-4" />
-                        <span className="font-semibold">Upload Image</span>
-                      </label>
-                    </div>
+                    <>
+                      {(subscriptionSettings.threeMonthsImageUrls || []).length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {(subscriptionSettings.threeMonthsImageUrls || []).map((url, index) => (
+                            <div key={`${url}-${index}`} className="relative">
+                              <img
+                                src={url}
+                                alt="3 Months Plan"
+                                className="w-24 h-20 object-cover rounded-lg border border-gray-200"
+                              />
+                              <button
+                                onClick={() => handleRemovePlanImage('three', url)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex justify-center">
+                        <input
+                          type="file"
+                          id="threeMonthImageInput"
+                          accept="image/*"
+                          onChange={(e) => handlePlanImageSelect('three', e)}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="threeMonthImageInput"
+                          className="inline-flex items-center space-x-2 bg-black text-white px-6 py-2.5 rounded-lg hover:bg-gray-800 transition cursor-pointer text-sm"
+                        >
+                          <Upload className="w-4 h-4" />
+                          <span className="font-semibold">Upload Image</span>
+                        </label>
+                      </div>
+                    </>
                   )}
                 </div>
                 {calculateSavings() > 0 && (
