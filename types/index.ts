@@ -123,7 +123,7 @@ export interface Payment {
   planName: string;
   amount: number;
   paymentMethod: string;
-  status: 'pending_verification' | 'verified' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected';
   timestamp: number;
   submittedAt: string;
   verifiedBy?: string;
@@ -169,4 +169,3 @@ export interface AppSettings {
   updatedAt?: string;
   updatedBy?: string;
 }
-

@@ -2,11 +2,29 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, onValue, update, off } from 'firebase/database';
+import { ref, onValue, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { Payment } from '@/types';
-import { Search, CheckCircle, XCircle, Eye, Clock, DollarSign, RefreshCw } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Eye, Clock, DollarSign } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+
+type PaymentStatus = 'pending' | 'approved' | 'rejected';
+
+const normalizePaymentStatus = (status: string | undefined): PaymentStatus => {
+  if (status === 'rejected') return 'rejected';
+  if (status === 'approved' || status === 'verified') return 'approved';
+  return 'pending';
+};
+
+const getPlanDurationMs = (plan: string): number => {
+  if (plan === 'oneMonth' || plan === '1_month') {
+    return 30 * 24 * 60 * 60 * 1000;
+  }
+  if (plan === 'threeMonths' || plan === '3_months') {
+    return 90 * 24 * 60 * 60 * 1000;
+  }
+  return 0;
+};
 
 export default function PaymentsPage() {
   const router = useRouter();
@@ -14,7 +32,7 @@ export default function PaymentsPage() {
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending_verification' | 'verified' | 'rejected'>('pending_verification');
+  const [filterStatus, setFilterStatus] = useState<'all' | PaymentStatus>('all');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -54,14 +72,7 @@ export default function PaymentsPage() {
             }
           }
           
-          // Map status - Flutter uses 'pending', 'approved', 'rejected'
-          // Web-admin uses 'pending_verification', 'verified', 'rejected'
-          let mappedStatus = payment.status || 'pending';
-          if (mappedStatus === 'pending') {
-            mappedStatus = 'pending_verification';
-          } else if (mappedStatus === 'approved') {
-            mappedStatus = 'verified';
-          }
+          const mappedStatus = normalizePaymentStatus(payment.status);
           
           paymentsList.push({
             ...payment,
@@ -81,10 +92,10 @@ export default function PaymentsPage() {
             // Map status
             status: mappedStatus,
             // Map date - handle ISO string or timestamp
-            timestamp: payment.timestamp || (payment.createdAt ? new Date(payment.createdAt).getTime() : Date.now()),
+            timestamp: Number(payment.timestamp) || (payment.createdAt ? new Date(payment.createdAt).getTime() : Date.now()),
             submittedAt: payment.submittedAt || (payment.createdAt ? new Date(payment.createdAt).toLocaleString() : ''),
             // Verification info
-            verifiedAt: payment.verifiedAt ? (typeof payment.verifiedAt === 'string' ? new Date(payment.verifiedAt).getTime() : payment.verifiedAt) : null,
+            verifiedAt: payment.verifiedAt ? (typeof payment.verifiedAt === 'string' ? new Date(payment.verifiedAt).getTime() : payment.verifiedAt) : undefined,
             verifiedBy: payment.verifiedBy || '',
             rejectionReason: payment.rejectionReason || '',
           });
@@ -105,7 +116,7 @@ export default function PaymentsPage() {
 
     // Cleanup listener on unmount
     return () => {
-      off(paymentsRef);
+      unsubscribe();
     };
   }, [router]);
 
@@ -122,7 +133,9 @@ export default function PaymentsPage() {
       filtered = filtered.filter(payment =>
         payment.driverName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         payment.driverPhone?.includes(searchQuery) ||
-        payment.planName?.toLowerCase().includes(searchQuery.toLowerCase())
+        payment.planName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        payment.paymentId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        payment.userId?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -138,12 +151,7 @@ export default function PaymentsPage() {
       const now = Date.now();
 
       // Calculate subscription dates based on plan
-      let subscriptionDuration = 0;
-      if (payment.plan === '1_month') {
-        subscriptionDuration = 30 * 24 * 60 * 60 * 1000; // 30 days
-      } else if (payment.plan === '3_months') {
-        subscriptionDuration = 90 * 24 * 60 * 60 * 1000; // 90 days
-      }
+      const subscriptionDuration = getPlanDurationMs(payment.plan);
 
       const subscriptionStartDate = now;
       const subscriptionEndDate = now + subscriptionDuration;
@@ -151,7 +159,7 @@ export default function PaymentsPage() {
       const updates: any = {};
 
       // Update payment record
-      updates[`subscription_payments/${payment.paymentId}/status`] = 'verified';
+      updates[`subscription_payments/${payment.paymentId}/status`] = 'approved';
       updates[`subscription_payments/${payment.paymentId}/verifiedBy`] = adminUser.userId;
       updates[`subscription_payments/${payment.paymentId}/verifiedAt`] = now;
 
@@ -233,26 +241,31 @@ export default function PaymentsPage() {
 
   const getStatusBadge = (status: string) => {
     const badges: any = {
-      'pending_verification': 'bg-yellow-100 text-yellow-800',
-      'verified': 'bg-green-100 text-green-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-green-100 text-green-800',
       'rejected': 'bg-red-100 text-red-800',
+    };
+    const labels: Record<string, string> = {
+      pending: 'Pending',
+      approved: 'Approved',
+      rejected: 'Rejected',
     };
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badges[status] || 'bg-gray-100 text-gray-800'}`}>
-        {status === 'pending_verification' ? 'Pending' : status.charAt(0).toUpperCase() + status.slice(1)}
+        {labels[status] || status}
       </span>
     );
   };
 
   const calculateStats = () => {
     const totalRevenue = payments
-      .filter(p => p.status === 'verified')
+      .filter(p => p.status === 'approved')
       .reduce((sum, p) => sum + (p.amount || 0), 0);
 
     return {
       totalRevenue,
-      pendingCount: payments.filter(p => p.status === 'pending_verification').length,
-      verifiedCount: payments.filter(p => p.status === 'verified').length,
+      pendingCount: payments.filter(p => p.status === 'pending').length,
+      approvedCount: payments.filter(p => p.status === 'approved').length,
       rejectedCount: payments.filter(p => p.status === 'rejected').length,
     };
   };
@@ -275,8 +288,8 @@ export default function PaymentsPage() {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-black mb-2">Payment Verification</h1>
-              <p className="text-black font-semibold">Review and verify driver subscription payments</p>
+              <h1 className="text-3xl font-bold text-black mb-2">Payment History</h1>
+              <p className="text-black font-semibold">Review all driver subscription payments</p>
             </div>
             <div className="flex items-center space-x-2 bg-green-100 px-4 py-2 rounded-full">
               <span className="relative flex h-3 w-3">
@@ -313,8 +326,8 @@ export default function PaymentsPage() {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-black text-sm font-bold mb-1">Verified</p>
-                <p className="text-3xl font-bold text-green-600">{stats.verifiedCount}</p>
+                <p className="text-black text-sm font-bold mb-1">Approved</p>
+                <p className="text-3xl font-bold text-green-600">{stats.approvedCount}</p>
               </div>
               <CheckCircle className="w-12 h-12 text-green-500" />
             </div>
@@ -351,9 +364,9 @@ export default function PaymentsPage() {
                 onChange={(e) => setFilterStatus(e.target.value as any)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
               >
-                <option value="pending_verification">Pending Only</option>
                 <option value="all">All Payments</option>
-                <option value="verified">Verified Only</option>
+                <option value="pending">Pending Only</option>
+                <option value="approved">Approved Only</option>
                 <option value="rejected">Rejected Only</option>
               </select>
             </div>
@@ -422,7 +435,7 @@ export default function PaymentsPage() {
                         <span className="text-sm text-black font-semibold">{payment.submittedAt || formatDate(payment.timestamp)}</span>
                       </td>
                       <td className="py-4 px-6">
-                        {payment.status === 'pending_verification' && (
+                        {payment.status === 'pending' && (
                           <div className="flex space-x-2">
                             <button
                               onClick={() => handleApprove(payment)}
@@ -442,9 +455,9 @@ export default function PaymentsPage() {
                             </button>
                           </div>
                         )}
-                        {payment.status === 'verified' && (
+                        {payment.status === 'approved' && (
                           <span className="text-sm text-gray-500">
-                            Verified {formatDate(payment.verifiedAt || 0)}
+                            Approved {formatDate(payment.verifiedAt || 0)}
                           </span>
                         )}
                       </td>
@@ -551,4 +564,3 @@ export default function PaymentsPage() {
     </DashboardLayout>
   );
 }
-

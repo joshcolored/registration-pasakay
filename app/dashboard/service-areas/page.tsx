@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, get, set, update } from 'firebase/database';
+import { ref, get, set } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { 
   MapPin, 
@@ -38,6 +38,8 @@ interface GeofenceSettings {
   isGeofencingEnabled: boolean;
   serviceAreas: ServiceArea[];
   outsideAreaMessage: string;
+  activeServiceAreas?: ServiceArea[];
+  activeServiceAreaIds?: string[];
   updatedAt?: string;
 }
 
@@ -83,6 +85,67 @@ const defaultSettings: GeofenceSettings = {
   updatedAt: new Date().toISOString(),
 };
 
+const normalizePoint = (point: any): LatLngPoint | null => {
+  if (!point) return null;
+
+  const latitudeRaw = point.latitude ?? point.lat;
+  const longitudeRaw = point.longitude ?? point.lng;
+  const latitude = Number(latitudeRaw);
+  const longitude = Number(longitudeRaw);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+
+  return { latitude, longitude };
+};
+
+const normalizeArea = (area: any, fallbackId: string): ServiceArea | null => {
+  if (!area || typeof area !== 'object') return null;
+
+  const polygonSource: any[] = Array.isArray(area.polygon) ? area.polygon : [];
+  const polygon = polygonSource
+    .map((point: any) => normalizePoint(point))
+    .filter((point: LatLngPoint | null): point is LatLngPoint => point !== null);
+
+  if (polygon.length < 3) return null;
+
+  const id = String(area.id || fallbackId);
+  const name = String(area.name || '').trim();
+  if (!name) return null;
+
+  const createdAt = typeof area.createdAt === 'string'
+    ? area.createdAt
+    : new Date().toISOString();
+
+  return {
+    id,
+    name,
+    description: String(area.description || ''),
+    polygon,
+    isEnabled: area.isEnabled !== false,
+    createdAt,
+    updatedAt: typeof area.updatedAt === 'string' ? area.updatedAt : undefined,
+  };
+};
+
+const normalizeAreas = (source: any): ServiceArea[] => {
+  if (!source) return [];
+
+  if (Array.isArray(source)) {
+    return source
+      .map((area: any, index: number) => normalizeArea(area, `area_${index + 1}`))
+      .filter((area): area is ServiceArea => area !== null);
+  }
+
+  if (typeof source === 'object') {
+    return Object.entries(source)
+      .map(([key, area]) => normalizeArea(area, key))
+      .filter((area): area is ServiceArea => area !== null);
+  }
+
+  return [];
+};
+
 export default function ServiceAreasPage() {
   const router = useRouter();
   const [settings, setSettings] = useState<GeofenceSettings>(defaultSettings);
@@ -121,20 +184,18 @@ export default function ServiceAreasPage() {
       
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Convert serviceAreas from object to array if needed
-        let serviceAreas: ServiceArea[] = [];
-        if (data.serviceAreas) {
-          if (Array.isArray(data.serviceAreas)) {
-            serviceAreas = data.serviceAreas;
-          } else {
-            serviceAreas = Object.values(data.serviceAreas);
-          }
-        }
+        const serviceAreas = normalizeAreas(data.serviceAreas);
+        const activeServiceAreas = normalizeAreas(data.activeServiceAreas);
+        const loadedAreas = serviceAreas.length > 0
+          ? serviceAreas
+          : (activeServiceAreas.length > 0 ? activeServiceAreas : defaultServiceAreas);
         
         setSettings({
           isGeofencingEnabled: data.isGeofencingEnabled ?? true,
-          serviceAreas: serviceAreas.length > 0 ? serviceAreas : defaultServiceAreas,
+          serviceAreas: loadedAreas,
           outsideAreaMessage: data.outsideAreaMessage || 'Service not available in your location.',
+          activeServiceAreas: loadedAreas.filter((area) => area.isEnabled),
+          activeServiceAreaIds: loadedAreas.filter((area) => area.isEnabled).map((area) => area.id),
           updatedAt: data.updatedAt,
         });
       } else {
@@ -154,14 +215,21 @@ export default function ServiceAreasPage() {
     setSaving(true);
     try {
       const settingsRef = ref(database, 'settings/geofencing');
-      // Persist both full list and active list for clients that only read enabled areas
-      const activeAreas = newSettings.serviceAreas.filter((a) => a.isEnabled);
+      const normalizedAreas = normalizeAreas(newSettings.serviceAreas);
+      const activeAreas = normalizedAreas.filter((a) => a.isEnabled);
       await set(settingsRef, {
         ...newSettings,
+        serviceAreas: normalizedAreas,
         activeServiceAreas: activeAreas,
+        activeServiceAreaIds: activeAreas.map((area) => area.id),
         updatedAt: new Date().toISOString(),
       });
-      setSettings(newSettings);
+      setSettings({
+        ...newSettings,
+        serviceAreas: normalizedAreas,
+        activeServiceAreas: activeAreas,
+        activeServiceAreaIds: activeAreas.map((area) => area.id),
+      });
       return true;
     } catch (error) {
       console.error('Error saving settings:', error);

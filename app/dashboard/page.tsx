@@ -115,7 +115,7 @@ export default function DashboardPage() {
       if (paymentsSnapshot.exists()) {
         const payments = paymentsSnapshot.val();
         Object.values(payments).forEach((payment: any) => {
-          if (payment.status === 'pending_verification') {
+          if (payment.status === 'pending' || payment.status === 'pending_verification' || !payment.status) {
             pendingPayments++;
           }
         });
@@ -358,4 +358,3 @@ export default function DashboardPage() {
     </DashboardLayout>
   );
 }
-
