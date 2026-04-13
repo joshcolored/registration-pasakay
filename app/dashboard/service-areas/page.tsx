@@ -124,7 +124,7 @@ const normalizeArea = (area: any, fallbackId: string): ServiceArea | null => {
     polygon,
     isEnabled: area.isEnabled !== false,
     createdAt,
-    updatedAt: typeof area.updatedAt === 'string' ? area.updatedAt : undefined,
+    ...(typeof area.updatedAt === 'string' ? { updatedAt: area.updatedAt } : {}),
   };
 };
 
@@ -144,6 +144,21 @@ const normalizeAreas = (source: any): ServiceArea[] => {
   }
 
   return [];
+};
+
+const buildPersistedSettings = (newSettings: GeofenceSettings) => {
+  const serviceAreas = normalizeAreas(newSettings.serviceAreas);
+  const activeServiceAreas = serviceAreas.filter((area) => area.isEnabled);
+  const updatedAt = new Date().toISOString();
+
+  return {
+    isGeofencingEnabled: newSettings.isGeofencingEnabled,
+    outsideAreaMessage: newSettings.outsideAreaMessage,
+    serviceAreas,
+    activeServiceAreas,
+    activeServiceAreaIds: activeServiceAreas.map((area) => area.id),
+    updatedAt,
+  };
 };
 
 export default function ServiceAreasPage() {
@@ -215,21 +230,9 @@ export default function ServiceAreasPage() {
     setSaving(true);
     try {
       const settingsRef = ref(database, 'settings/geofencing');
-      const normalizedAreas = normalizeAreas(newSettings.serviceAreas);
-      const activeAreas = normalizedAreas.filter((a) => a.isEnabled);
-      await set(settingsRef, {
-        ...newSettings,
-        serviceAreas: normalizedAreas,
-        activeServiceAreas: activeAreas,
-        activeServiceAreaIds: activeAreas.map((area) => area.id),
-        updatedAt: new Date().toISOString(),
-      });
-      setSettings({
-        ...newSettings,
-        serviceAreas: normalizedAreas,
-        activeServiceAreas: activeAreas,
-        activeServiceAreaIds: activeAreas.map((area) => area.id),
-      });
+      const payload = buildPersistedSettings(newSettings);
+      await set(settingsRef, payload);
+      setSettings(payload);
       return true;
     } catch (error) {
       console.error('Error saving settings:', error);
