@@ -29,9 +29,8 @@ export default function PrivacyPolicyPage() {
             <li>
               <strong>Location data</strong>: precise and approximate location collected
               from your device to enable trip matching, navigation, pickup/delivery
-              tracking, ETA updates, and safety features. Location data may be collected
-              while the app is in use and, where enabled, in the background for active
-              trips or deliveries.
+              tracking, ETA updates, and safety features. Location data is collected
+              while the app is in use.
             </li>
             <li>
               <strong>Transaction data</strong>: trip or delivery details, order items,

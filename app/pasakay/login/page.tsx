@@ -1,11 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { ref, get, onValue, off } from 'firebase/database';
+import { get, off, onValue, ref } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
-import { Eye, EyeOff, Shield, RefreshCw, Mail } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  RefreshCw,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react';
 
 type AdminUser = {
   userId: string;
@@ -13,6 +21,8 @@ type AdminUser = {
   name?: string;
   userType?: string;
 };
+
+const FALLBACK_LOGO = '/pasakay-logo.jpg';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,50 +32,71 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const [stage, setStage] = useState<"LOGIN" | "OTP">("LOGIN");
+  const [stage, setStage] = useState<'LOGIN' | 'OTP'>('LOGIN');
   const [otp, setOtp] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpExpiresAt, setOtpExpiresAt] = useState<number | null>(null);
   const [otpResendCooldown, setOtpResendCooldown] = useState(0);
   const [pendingAdmin, setPendingAdmin] = useState<AdminUser | null>(null);
-  
-  // Initialize logo from localStorage cache for instant display
-  const [logoUrl, setLogoUrl] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('cachedLogoUrl');
-    }
-    return null;
-  });
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoVersion, setLogoVersion] = useState<string>('default');
+
+  const resolvedLogoSrc = useMemo(() => {
+    if (!logoUrl) return FALLBACK_LOGO;
+    const separator = logoUrl.includes('?') ? '&' : '?';
+    return `${logoUrl}${separator}v=${encodeURIComponent(logoVersion)}`;
+  }, [logoUrl, logoVersion]);
 
   useEffect(() => {
-    // Set up real-time listener for logo
     const appRef = ref(database, 'settings/app');
-    
-    const unsubscribe = onValue(appRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        // Check for valid logo URL (not empty string, not null, not undefined)
-        const newLogoUrl = data.logoUrl && data.logoUrl.trim() !== '' ? data.logoUrl : null;
-        
-        setLogoUrl(newLogoUrl);
-        
-        if (newLogoUrl) {
-          // Cache for instant display on refresh
-          localStorage.setItem('cachedLogoUrl', newLogoUrl);
+
+    const unsubscribe = onValue(
+      appRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setLogoUrl(null);
+          setLogoVersion('default');
+          localStorage.removeItem('cachedLogoUrl');
+          localStorage.removeItem('cachedLogoUpdatedAt');
+          return;
+        }
+
+        const data = snapshot.val() || {};
+        const nextLogoUrl =
+          typeof data.logoUrl === 'string' && data.logoUrl.trim() !== ''
+            ? data.logoUrl.trim()
+            : null;
+        const nextVersion =
+          typeof data.updatedAt === 'string' && data.updatedAt.trim() !== ''
+            ? data.updatedAt
+            : Date.now().toString();
+
+        setLogoUrl(nextLogoUrl);
+        setLogoVersion(nextVersion);
+
+        if (nextLogoUrl) {
+          localStorage.setItem('cachedLogoUrl', nextLogoUrl);
+          localStorage.setItem('cachedLogoUpdatedAt', nextVersion);
         } else {
           localStorage.removeItem('cachedLogoUrl');
+          localStorage.removeItem('cachedLogoUpdatedAt');
         }
-      } else {
-        setLogoUrl(null);
-        localStorage.removeItem('cachedLogoUrl');
+      },
+      (listenerError) => {
+        console.error('Error loading logo:', listenerError);
+        const cachedUrl = localStorage.getItem('cachedLogoUrl');
+        const cachedUpdatedAt = localStorage.getItem('cachedLogoUpdatedAt');
+        if (cachedUrl) {
+          setLogoUrl(cachedUrl);
+          setLogoVersion(cachedUpdatedAt || 'cached');
+        }
       }
-    }, (error) => {
-      console.error('Error loading logo:', error);
-    });
+    );
 
-    // Cleanup listener on unmount
     return () => {
       off(appRef);
+      unsubscribe();
     };
   }, []);
 
@@ -118,12 +149,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Sign in with Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       const userId = user.uid;
 
-      // Check if email is verified (skip for admins created manually)
       if (!user.emailVerified) {
         setError('Please verify your email address before logging in. Check your inbox for the verification email.');
         await auth.signOut();
@@ -131,7 +160,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Check if user is admin
       const userRef = ref(database, `users/${userId}`);
       const snapshot = await get(userRef);
 
@@ -148,7 +176,7 @@ export default function LoginPage() {
           const otpOk = await sendOtp(adminPayload);
           if (otpOk) {
             setPendingAdmin(adminPayload);
-            setStage("OTP");
+            setStage('OTP');
           }
         } else {
           setError('Access denied. Admin privileges required.');
@@ -178,7 +206,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (!pendingAdmin) {
       setError('Session expired. Please login again.');
-      setStage("LOGIN");
+      setStage('LOGIN');
       return;
     }
     setOtpLoading(true);
@@ -210,184 +238,217 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
-        {/* Logo and Title */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="w-32 h-32 bg-white rounded-3xl shadow-lg flex items-center justify-center p-2">
-              <img
-                key={logoUrl || 'default-logo'}
-                src={logoUrl || "/pasakay-logo.png"}
-                alt="Pasakay Logo"
-                className="w-full h-full object-contain rounded-2xl"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = '/pasakay-logo.png';
-                }}
-              />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Pasakay Admin</h1>
-          <p className="text-gray-600">
-            {stage === "LOGIN" ? "Sign in to access the dashboard" : "Enter the code we emailed to you"}
-          </p>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
-        )}
-
-        {stage === "LOGIN" ? (
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-bold text-black mb-2">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-black font-semibold placeholder-gray-400"
-                placeholder="admin@pasakay.com"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-bold text-black mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-black font-semibold placeholder-gray-400"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <Shield className="w-5 h-5" />
-                  Sign In
-                </>
-              )}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-6">
-            <div>
-              <label htmlFor="otp" className="block text-sm font-bold text-black mb-2">
-                Enter the 6-digit code
-              </label>
-              <div className="relative">
-                <input
-                  id="otp"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-black font-semibold placeholder-gray-400 tracking-widest text-center"
-                  placeholder="123456"
-                />
-                <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-              {otpExpiresAt && (
-                <p className="text-xs text-gray-500 mt-2">
-                  Expires at {new Date(otpExpiresAt).toLocaleTimeString()}
+    <div className="min-h-screen bg-[#050505] text-white">
+      <div
+        className="min-h-screen"
+        style={{
+          backgroundColor: '#050505',
+          backgroundImage:
+            'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
+          backgroundSize: '18px 18px',
+          backgroundPosition: '0 0',
+        }}
+      >
+        <div className="mx-auto flex min-h-screen max-w-7xl items-center px-4 py-8 sm:px-6 lg:px-8">
+          <div className="grid w-full gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <section className="hidden lg:block">
+              <div className="max-w-xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-zinc-300">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                  Pasakay Control
+                </div>
+                <h1 className="mt-6 text-5xl font-semibold leading-tight tracking-tight text-white">
+                  Secure admin access for Pasakay operations.
+                </h1>
+                <p className="mt-6 text-lg leading-8 text-zinc-400">
+                  Monitor drivers, payments, trips, merchants, and settings from a
+                  cleaner control panel with OTP verification.
                 </p>
-              )}
-            </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <button
-                type="button"
-                onClick={() => {
-                  setStage("LOGIN");
-                  setOtp('');
-                  setPendingAdmin(null);
-                  setOtpExpiresAt(null);
-                }}
-                className="text-blue-600 hover:underline"
-              >
-                Back to login
-              </button>
-              <button
-                type="button"
-                disabled={otpResendCooldown > 0 || otpLoading || !pendingAdmin}
-                onClick={() => {
-                  if (pendingAdmin) sendOtp(pendingAdmin);
-                }}
-                className="flex items-center gap-2 text-blue-600 hover:underline disabled:opacity-50"
-              >
-                <RefreshCw className="w-4 h-4" />
-                {otpResendCooldown > 0 ? `Resend (${otpResendCooldown}s)` : 'Resend code'}
-              </button>
-            </div>
+                <div className="mt-10 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                    <ShieldCheck className="h-6 w-6 text-emerald-400" />
+                    <h2 className="mt-4 text-lg font-semibold text-white">Protected Login</h2>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">
+                      Email-password sign-in backed by OTP verification before dashboard access.
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                    <Mail className="h-6 w-6 text-sky-400" />
+                    <h2 className="mt-4 text-lg font-semibold text-white">Live Branding</h2>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">
+                      Logo changes now refresh correctly instead of staying stuck on an older cached image.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
 
-            <button
-              type="submit"
-              disabled={otpLoading || otp.length !== 6}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {otpLoading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Verifying...
-                </>
-              ) : (
-                <>
-                  <Shield className="w-5 h-5" />
-                  Verify & Continue
-                </>
-              )}
-            </button>
-          </form>
-        )}
+            <section className="w-full">
+              <div className="mx-auto w-full max-w-md rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-8">
+                <div className="text-center">
+                  <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2rem] border border-white/10 bg-white/95 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+                    <img
+                      key={resolvedLogoSrc}
+                      src={resolvedLogoSrc}
+                      alt="Pasakay Logo"
+                      className="h-full w-full rounded-2xl object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = FALLBACK_LOGO;
+                      }}
+                    />
+                  </div>
+                  <h2 className="mt-6 text-3xl font-semibold tracking-tight text-white">
+                    Pasakay Admin
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-zinc-400">
+                    {stage === 'LOGIN'
+                      ? 'Sign in to access dashboard tools and protected admin actions.'
+                      : 'Enter the 6-digit code sent to your email to continue.'}
+                  </p>
+                </div>
 
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-500">
-            Ac 2025 Pasakay. All rights reserved.
-          </p>
+                {error && (
+                  <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3">
+                    <p className="text-sm text-red-200">{error}</p>
+                  </div>
+                )}
+
+                {stage === 'LOGIN' ? (
+                  <form onSubmit={handleLogin} className="mt-8 space-y-5">
+                    <div>
+                      <label htmlFor="email" className="mb-2 block text-sm font-medium text-zinc-200">
+                        Email Address
+                      </label>
+                      <input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3.5 text-white outline-none transition placeholder:text-zinc-500 focus:border-white/20 focus:bg-black/50"
+                        placeholder="admin@pasakay.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="password" className="mb-2 block text-sm font-medium text-zinc-200">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3.5 pr-12 text-white outline-none transition placeholder:text-zinc-500 focus:border-white/20 focus:bg-black/50"
+                          placeholder="Enter your password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 transition hover:text-white"
+                        >
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Signing in...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="h-4 w-4" />
+                          Sign In
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyOtp} className="mt-8 space-y-5">
+                    <div>
+                      <label htmlFor="otp" className="mb-2 block text-sm font-medium text-zinc-200">
+                        Enter the 6-digit code
+                      </label>
+                      <input
+                        id="otp"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        required
+                        className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3.5 text-center text-2xl tracking-[0.5em] text-white outline-none transition placeholder:text-zinc-500 focus:border-white/20 focus:bg-black/50"
+                        placeholder="000000"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-zinc-400">
+                      {otpExpiresAt ? (
+                        <p>Code expires at {new Date(otpExpiresAt).toLocaleTimeString()}.</p>
+                      ) : (
+                        <p>Use the code sent to your admin email address.</p>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={otpLoading || otp.length !== 6}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {otpLoading ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-4 w-4" />
+                          Verify OTP
+                        </>
+                      )}
+                    </button>
+
+                    <div className="flex items-center justify-between text-sm text-zinc-400">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStage('LOGIN');
+                          setOtp('');
+                          setError('');
+                        }}
+                        className="transition hover:text-white"
+                      >
+                        Back to login
+                      </button>
+                      <button
+                        type="button"
+                        disabled={otpResendCooldown > 0 || otpLoading || !pendingAdmin}
+                        onClick={() => pendingAdmin && sendOtp(pendingAdmin)}
+                        className="transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {otpResendCooldown > 0 ? `Resend in ${otpResendCooldown}s` : 'Resend code'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <p className="mt-8 text-center text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Secure admin access only
+                </p>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </div>
