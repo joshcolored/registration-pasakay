@@ -26,6 +26,16 @@ const getPlanDurationMs = (plan: string): number => {
   return 0;
 };
 
+const normalizeFlutterPlan = (plan: string): string => {
+  if (plan === 'oneMonth' || plan === '1_month') {
+    return 'oneMonth';
+  }
+  if (plan === 'threeMonths' || plan === '3_months') {
+    return 'threeMonths';
+  }
+  return plan;
+};
+
 export default function PaymentsPage() {
   const router = useRouter();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -152,9 +162,17 @@ export default function PaymentsPage() {
 
       // Calculate subscription dates based on plan
       const subscriptionDuration = getPlanDurationMs(payment.plan);
+      const normalizedPlan = normalizeFlutterPlan(payment.plan);
+
+      if (!subscriptionDuration || (normalizedPlan !== 'oneMonth' && normalizedPlan !== 'threeMonths')) {
+        alert(`Unsupported subscription plan: ${payment.plan}`);
+        setProcessing(false);
+        return;
+      }
 
       const subscriptionStartDate = now;
       const subscriptionEndDate = now + subscriptionDuration;
+      const subscriptionExpiryIso = new Date(subscriptionEndDate).toISOString();
 
       const updates: any = {};
 
@@ -167,7 +185,10 @@ export default function PaymentsPage() {
       updates[`drivers/${payment.userId}/subscriptionStartDate`] = subscriptionStartDate;
       updates[`drivers/${payment.userId}/subscriptionEndDate`] = subscriptionEndDate;
       updates[`drivers/${payment.userId}/subscriptionStatus`] = 'active';
-      updates[`drivers/${payment.userId}/subscriptionType`] = payment.plan;
+      updates[`drivers/${payment.userId}/subscriptionType`] = normalizedPlan;
+      updates[`drivers/${payment.userId}/subscriptionPlan`] = normalizedPlan;
+      updates[`drivers/${payment.userId}/subscriptionExpiry`] = subscriptionExpiryIso;
+      updates[`drivers/${payment.userId}/hasActiveSubscription`] = true;
 
       await update(ref(database), updates);
 
