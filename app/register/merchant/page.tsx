@@ -38,6 +38,32 @@ const merchantCategories = [
   { value: 'grocery', label: 'Grocery', icon: '🛒' },
 ];
 
+const businessTypeOptions = [
+  { value: 'food', label: 'Food', icon: '🍽️' },
+  { value: 'vape', label: 'Vape Store', icon: '💨' },
+  { value: 'medicine', label: 'Medicine', icon: '💊' },
+] as const;
+
+const merchantCategoriesByType = {
+  food: [
+    { value: 'restaurant', label: 'Restaurant', icon: '🍽️' },
+    { value: 'cafe', label: 'Cafe', icon: '☕' },
+    { value: 'fastFood', label: 'Fast Food', icon: '🍔' },
+    { value: 'bakery', label: 'Bakery', icon: '🥐' },
+    { value: 'desserts', label: 'Desserts', icon: '🍰' },
+    { value: 'drinks', label: 'Drinks', icon: '🥤' },
+    { value: 'grocery', label: 'Grocery', icon: '🛒' },
+  ],
+  vape: [
+    { value: 'vapeStore', label: 'Vape Shop', icon: '💨' },
+    { value: 'other', label: 'Other Vape Retail', icon: '🏪' },
+  ],
+  medicine: [
+    { value: 'pharmacy', label: 'Pharmacy', icon: '💊' },
+    { value: 'other', label: 'Medical Essentials', icon: '🏥' },
+  ],
+} as const;
+
 export default function MerchantRegistrationPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -62,10 +88,16 @@ export default function MerchantRegistrationPage() {
     phone: '',
     address: '',
     description: '',
+    businessType: 'food',
     category: 'restaurant',
     password: '',
     confirmPassword: '',
   });
+
+  const categoryOptions =
+    merchantCategoriesByType[
+      formData.businessType as keyof typeof merchantCategoriesByType
+    ] || merchantCategoriesByType.food;
 
   // File uploads
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -77,7 +109,19 @@ export default function MerchantRegistrationPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      if (name === 'businessType') {
+        const nextCategories =
+          merchantCategoriesByType[value as keyof typeof merchantCategoriesByType] ||
+          merchantCategoriesByType.food;
+        return {
+          ...prev,
+          businessType: value,
+          category: nextCategories[0].value,
+        };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'business' | 'sanitary') => {
@@ -273,6 +317,7 @@ export default function MerchantRegistrationPage() {
         address: formData.address,
         latitude: parsedLat,
         longitude: parsedLng,
+        businessType: formData.businessType,
         category: formData.category,
         logoUrl: logoUrl || null,
         description: formData.description || null,
@@ -374,7 +419,7 @@ export default function MerchantRegistrationPage() {
               Register as Merchant
             </h1>
             <p className="text-gray-600">
-              Join Pasakay and start selling your food products
+              Join Pasakay and start selling food, vape, or medicine products
             </p>
           </div>
 
@@ -386,6 +431,35 @@ export default function MerchantRegistrationPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Business Type <span className="text-red-600">*</span></h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {businessTypeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      businessType: option.value,
+                      category: merchantCategoriesByType[option.value][0].value,
+                    }))}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      formData.businessType === option.value
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-2xl mb-2">{option.icon}</div>
+                    <div className={`text-sm font-semibold ${
+                      formData.businessType === option.value ? 'text-purple-600' : 'text-gray-800'
+                    }`}>
+                      {option.label}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Business Logo */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Business Logo</h3>
@@ -423,7 +497,7 @@ export default function MerchantRegistrationPage() {
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Business Category <span className="text-red-600">*</span></h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {merchantCategories.map((cat) => (
+                {categoryOptions.map((cat) => (
                   <button
                     key={cat.value}
                     type="button"
