@@ -17,6 +17,7 @@ interface Merchant {
   email: string;
   phone: string;
   address: string;
+  businessType?: string;
   category: string;
   status: string;
   logoUrl?: string;
