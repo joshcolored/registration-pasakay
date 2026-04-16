@@ -145,9 +145,11 @@ export default function RegisterLandingPage() {
               onClick={() => router.push('/')}
               className="flex items-center gap-3 rounded-full border border-white/10 bg-white/6 px-3 py-2 text-left transition hover:border-white/20 hover:bg-white/10"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-sm font-bold text-black shadow-[0_0_40px_rgba(255,255,255,0.12)]">
-                P
-              </div>
+              <img
+                src="/pasakay-logo.jpg"
+                alt="Pasakay logo"
+                className="h-10 w-10 rounded-2xl bg-white object-cover shadow-[0_0_40px_rgba(255,255,255,0.12)]"
+              />
               <div>
                 <p className="text-lg font-semibold tracking-tight text-white">Pasakay</p>
                 <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
