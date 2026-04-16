@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
@@ -12,6 +13,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
+import { useRegisterScrollMotion } from '@/components/RegisterMotion';
 
 const driverHighlights = [
   {
@@ -30,16 +32,16 @@ const driverHighlights = [
 
 const merchantHighlights = [
   {
-    title: 'More Reach',
-    description: 'Get discovered by customers beyond your physical location.',
+    title: 'Multi-Category Storefront',
+    description: 'List food, vape, or medicine products under the right customer category.',
   },
   {
-    title: 'Simple Operations',
-    description: 'Manage menu, availability, and incoming orders in one place.',
+    title: 'Simple Catalog Control',
+    description: 'Manage products, availability, store status, and incoming orders in one place.',
   },
   {
-    title: 'Fast Fulfillment',
-    description: 'Use Pasakay drivers to move orders quickly across your area.',
+    title: 'Local Delivery Reach',
+    description: 'Connect with nearby customers and use Pasakay delivery for faster fulfillment.',
   },
 ];
 
@@ -52,8 +54,8 @@ const driverRequirements = [
 
 const merchantRequirements = [
   'Valid business permit',
-  'Food establishment',
-  'Sanitary permit recommended',
+  'Food, vape, pharmacy, or essentials business',
+  'Required permits for your business type',
   'Business contact information',
 ];
 
@@ -122,11 +124,13 @@ function RequirementsList({ items }: { items: string[] }) {
 
 export default function RegisterLandingPage() {
   const router = useRouter();
+  const pageRef = useRef<HTMLElement | null>(null);
+  useRegisterScrollMotion(pageRef);
 
   return (
-    <main className="min-h-screen bg-[#050505] text-white">
+    <main ref={pageRef} className="min-h-screen bg-[#050505] text-white">
       <div
-        className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_0),radial-gradient(circle_at_20%_20%,rgba(88,28,135,0.22),transparent_28%),radial-gradient(circle_at_80%_18%,rgba(29,78,216,0.2),transparent_24%),radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.05),transparent_35%)]"
+        className="relative min-h-screen overflow-hidden"
         style={{
           backgroundColor: '#050505',
           backgroundImage:
@@ -163,22 +167,22 @@ export default function RegisterLandingPage() {
         <section className="mx-auto max-w-7xl px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pb-24 lg:pt-20">
           <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-zinc-300">
+              <div className="gsap-hero inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-zinc-300">
                 <Star className="h-3.5 w-3.5 text-amber-300" />
                 Build With Pasakay
               </div>
 
-              <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-7xl">
-                Start earning on a darker, sharper, more modern Pasakay network.
+              <h1 className="gsap-hero mt-6 max-w-4xl text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-7xl">
+                Join the local mobility and delivery network built for faster daily work.
               </h1>
 
-              <p className="mt-6 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
+              <p className="gsap-hero mt-6 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
                 Choose the lane that fits you. Drive passengers across your city or
                 turn your store into a delivery-ready business with faster onboarding
                 and clearer tools.
               </p>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              <div className="gsap-hero mt-8 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <p className="text-2xl font-semibold text-white">24/7</p>
                   <p className="mt-2 text-sm text-zinc-400">Platform availability for orders and trips</p>
@@ -194,7 +198,7 @@ export default function RegisterLandingPage() {
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:p-6">
+            <div className="gsap-card rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:p-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 {partnerBenefits.map((benefit) => {
                   const Icon = benefit.icon;
@@ -220,8 +224,8 @@ export default function RegisterLandingPage() {
           </div>
 
           <div className="mt-12 grid gap-6 xl:grid-cols-2">
-            <section className="overflow-hidden rounded-[2rem] border border-blue-500/20 bg-[#0a0a0a]/90 shadow-[0_20px_60px_rgba(37,99,235,0.18)]">
-              <div className="border-b border-white/10 bg-[linear-gradient(135deg,rgba(37,99,235,0.28),rgba(255,255,255,0.02))] p-6 sm:p-8">
+            <section className="gsap-card overflow-hidden rounded-[2rem] border border-white/10 bg-[#0a0a0a]/90 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+              <div className="border-b border-white/10 bg-white/[0.04] p-6 sm:p-8">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex h-14 w-14 items-center justify-center rounded-3xl border border-white/10 bg-white/10">
@@ -254,8 +258,8 @@ export default function RegisterLandingPage() {
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-[2rem] border border-fuchsia-500/20 bg-[#0a0a0a]/90 shadow-[0_20px_60px_rgba(168,85,247,0.18)]">
-              <div className="border-b border-white/10 bg-[linear-gradient(135deg,rgba(168,85,247,0.30),rgba(255,255,255,0.02))] p-6 sm:p-8">
+            <section className="gsap-card overflow-hidden rounded-[2rem] border border-white/10 bg-[#0a0a0a]/90 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+              <div className="border-b border-white/10 bg-white/[0.04] p-6 sm:p-8">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex h-14 w-14 items-center justify-center rounded-3xl border border-white/10 bg-white/10">
@@ -265,7 +269,7 @@ export default function RegisterLandingPage() {
                       Sell on Pasakay
                     </h2>
                     <p className="mt-3 max-w-md text-sm leading-6 text-fuchsia-100/75 sm:text-base">
-                      For food businesses that want better visibility, simpler delivery flow, and stronger order reach.
+                      For food shops, vape stores, pharmacies, and essentials sellers that want cleaner online ordering and local delivery reach.
                     </p>
                   </div>
                   <div className="rounded-full border border-fuchsia-300/20 bg-fuchsia-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-fuchsia-100">

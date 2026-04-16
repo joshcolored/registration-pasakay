@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { getDatabase, ref, set } from 'firebase/database';
+import { useRegisterScrollMotion } from '@/components/RegisterMotion';
 
 // Initialize Firebase
 if (!getApps().length) {
@@ -66,19 +66,19 @@ const merchantCategoriesByType = {
 
 export default function MerchantRegistrationPage() {
   const router = useRouter();
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  useRegisterScrollMotion(pageRef);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [locationSearch, setLocationSearch] = useState('');
+  const [coordinateInput, setCoordinateInput] = useState('');
   const [locationLat, setLocationLat] = useState('');
   const [locationLng, setLocationLng] = useState('');
   const [locationStatus, setLocationStatus] = useState('');
-
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-  });
 
   // Form fields
   const [formData, setFormData] = useState({
@@ -144,7 +144,7 @@ export default function MerchantRegistrationPage() {
     }
   };
 
-  const defaultCenter = useMemo(() => ({ lat: 10.2667, lng: 122.85 }), []);
+  const defaultCenter = useMemo(() => ({ lat: 10.6765, lng: 122.9509 }), []);
   const parsedLat = parseFloat(locationLat);
   const parsedLng = parseFloat(locationLng);
   const mapCenter = useMemo(
@@ -154,14 +154,103 @@ export default function MerchantRegistrationPage() {
         : { lat: parsedLat, lng: parsedLng },
     [parsedLat, parsedLng, defaultCenter]
   );
+  const mapQuery =
+    locationSearch.trim() ||
+    formData.address.trim() ||
+    formData.businessName.trim() ||
+    `${mapCenter.lat},${mapCenter.lng}`;
+  const googleMapSrc = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed`;
+  const googleMapUrl = `https://maps.google.com/?q=${encodeURIComponent(mapQuery)}`;
 
-  const handleMapClick = (event: google.maps.MapMouseEvent) => {
-    if (!event.latLng) return;
-    const lat = event.latLng.lat();
-    const lng = event.latLng.lng();
+  const handleLocationSearch = async () => {
+    const query = locationSearch.trim() || formData.address.trim() || formData.businessName.trim();
+
+    if (!query) {
+      setLocationStatus('Enter a business name or address to search.');
+      return;
+    }
+
+    setLocationStatus('Searching location...');
+
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        format: 'json',
+        limit: '1',
+        addressdetails: '1',
+      });
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+        {
+          headers: {
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Location search failed.');
+      }
+
+      const results = await response.json();
+      if (!Array.isArray(results) || !results[0]) {
+        setLocationStatus('Google preview updated. Coordinates were not found automatically, so enter latitude and longitude manually if needed.');
+        return;
+      }
+
+      const lat = Number(results[0].lat);
+      const lng = Number(results[0].lon);
+
+      setLocationLat(lat.toFixed(6));
+      setLocationLng(lng.toFixed(6));
+      setLocationStatus(`Location found: ${results[0].display_name}`);
+    } catch (err) {
+      setLocationStatus('Location search failed. Please try again or enter coordinates manually.');
+    }
+  };
+
+  const handleUsePastedCoordinates = () => {
+    const text = coordinateInput.trim();
+
+    if (!text) {
+      setLocationStatus('Paste a Google Maps link or coordinates first.');
+      return;
+    }
+
+    const patterns = [
+      /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+      /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+      /q=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+      /(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+    ];
+
+    const match = patterns
+      .map((pattern) => text.match(pattern))
+      .find(Boolean);
+
+    if (!match) {
+      setLocationStatus('Could not read coordinates. Copy text like "10.170843, 122.979512" or paste a Google Maps link.');
+      return;
+    }
+
+    const lat = Number(match[1]);
+    const lng = Number(match[2]);
+
+    if (
+      Number.isNaN(lat) ||
+      Number.isNaN(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
+      setLocationStatus('Coordinates are invalid. Latitude must be -90 to 90 and longitude must be -180 to 180.');
+      return;
+    }
+
     setLocationLat(lat.toFixed(6));
     setLocationLng(lng.toFixed(6));
-    setLocationStatus('Location pinned on map.');
+    setLocationStatus('Coordinates applied from pasted Google Maps link/text.');
   };
 
   const handleUseCurrentLocation = () => {
@@ -397,13 +486,20 @@ export default function MerchantRegistrationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      ref={pageRef}
+      className="min-h-screen bg-[#050505] text-white"
+      style={{
+        backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
+        backgroundSize: '18px 18px',
+      }}
+    >
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/60 shadow-sm backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <button
             onClick={() => router.push('/register')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-2 text-zinc-300 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Back</span>
@@ -413,12 +509,22 @@ export default function MerchantRegistrationPage() {
 
       {/* Form */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="gsap-hero mb-8 rounded-[2rem] border border-white/10 bg-white/[0.05] p-6 text-center shadow-[0_24px_90px_rgba(0,0,0,0.45)] sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-200">Merchant onboarding</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+            Register as Merchant
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-zinc-400">
+            Add your store details, location, category, and permits for faster review.
+          </p>
+        </div>
+
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.45)] sm:p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-white mb-2">
               Register as Merchant
-            </h1>
-            <p className="text-gray-600">
+            </h2>
+            <p className="text-zinc-400">
               Join Pasakay and start selling food, vape, or medicine products
             </p>
           </div>
@@ -431,8 +537,8 @@ export default function MerchantRegistrationPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Business Type <span className="text-red-600">*</span></h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Business Type <span className="text-red-300">*</span></h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {businessTypeOptions.map((option) => (
                   <button
@@ -445,13 +551,13 @@ export default function MerchantRegistrationPage() {
                     }))}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       formData.businessType === option.value
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-fuchsia-300 bg-fuchsia-300/10'
+                        : 'border-white/10 bg-white/[0.03] hover:border-white/25'
                     }`}
                   >
                     <div className="text-2xl mb-2">{option.icon}</div>
                     <div className={`text-sm font-semibold ${
-                      formData.businessType === option.value ? 'text-purple-600' : 'text-gray-800'
+                      formData.businessType === option.value ? 'text-fuchsia-100' : 'text-zinc-200'
                     }`}>
                       {option.label}
                     </div>
@@ -461,8 +567,8 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Business Logo */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Business Logo</h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Business Logo</h3>
               <div className="flex justify-center">
                 <div className="relative">
                   <input
@@ -494,8 +600,8 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Business Category */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Business Category <span className="text-red-600">*</span></h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Business Category <span className="text-red-300">*</span></h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {categoryOptions.map((cat) => (
                   <button
@@ -504,13 +610,13 @@ export default function MerchantRegistrationPage() {
                     onClick={() => setFormData(prev => ({ ...prev, category: cat.value }))}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       formData.category === cat.value
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-fuchsia-300 bg-fuchsia-300/10'
+                        : 'border-white/10 bg-white/[0.03] hover:border-white/25'
                     }`}
                   >
                     <div className="text-3xl mb-2">{cat.icon}</div>
                     <div className={`text-sm font-medium ${
-                      formData.category === cat.value ? 'text-purple-600' : 'text-gray-700'
+                      formData.category === cat.value ? 'text-fuchsia-100' : 'text-zinc-200'
                     }`}>
                       {cat.label}
                     </div>
@@ -520,8 +626,8 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Business Information */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Business Information</h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Business Information</h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -596,71 +702,111 @@ export default function MerchantRegistrationPage() {
                     required
                   />
                 </div>
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <div className="flex items-center justify-between gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-700">Business Location</p>
-                      <p className="text-xs text-gray-500">Use your device location for delivery fee calculations.</p>
+                      <p className="text-sm font-medium text-white">Business Location</p>
+                      <p className="text-xs text-zinc-400">Search your store, use current location, or enter coordinates manually.</p>
                     </div>
                     <button
                       type="button"
                       onClick={handleUseCurrentLocation}
-                      className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                      className="rounded-xl border border-fuchsia-300/20 bg-fuchsia-300/10 px-3 py-2 text-xs font-semibold text-fuchsia-100 hover:bg-fuchsia-300/20"
                     >
                       Use Current Location
                     </button>
                   </div>
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="text"
+                      value={locationSearch}
+                      onChange={(e) => setLocationSearch(e.target.value)}
+                      className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-fuchsia-300/50 focus:ring-2 focus:ring-fuchsia-300/20"
+                      placeholder="Search business name or address"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleLocationSearch}
+                      className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200"
+                    >
+                      Search Location
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-500">
+                    Example: "Mercury Drug Bacolod" or "SM City Bacolod, Bacolod City".
+                  </p>
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Latitude</label>
+                      <label className="block text-xs font-medium text-zinc-400 mb-1">Latitude</label>
                       <input
                         type="text"
                         value={locationLat}
-                        readOnly
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-gray-50"
-                        placeholder="Use current location"
+                        onChange={(e) => setLocationLat(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-fuchsia-300/50 focus:ring-2 focus:ring-fuchsia-300/20"
+                        placeholder="10.266700"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Longitude</label>
+                      <label className="block text-xs font-medium text-zinc-400 mb-1">Longitude</label>
                       <input
                         type="text"
                         value={locationLng}
-                        readOnly
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-gray-50"
-                        placeholder="Use current location"
+                        onChange={(e) => setLocationLng(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-fuchsia-300/50 focus:ring-2 focus:ring-fuchsia-300/20"
+                        placeholder="122.850000"
                         required
                       />
                     </div>
                   </div>
                   <div className="mt-4">
-                    {loadError ? (
-                      <p className="text-xs text-red-600">Failed to load Google Maps.</p>
-                    ) : !isLoaded ? (
-                      <p className="text-xs text-gray-500">Loading map...</p>
-                    ) : (
-                      <div className="h-64 w-full overflow-hidden rounded-lg border border-gray-200">
-                        <GoogleMap
-                          mapContainerStyle={{ width: '100%', height: '100%' }}
-                          center={mapCenter}
-                          zoom={15}
-                          onClick={handleMapClick}
-                          options={{
-                            streetViewControl: false,
-                            mapTypeControl: false,
-                            fullscreenControl: false,
-                          }}
+                    <div className="h-64 w-full overflow-hidden rounded-2xl border border-white/10 bg-zinc-900">
+                      <iframe
+                        key={googleMapSrc}
+                        title="Business location Google Maps preview"
+                        src={googleMapSrc}
+                        className="h-full w-full border-0"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="mt-2 flex flex-col gap-2 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+                      <p>Google Maps preview. Search here, then confirm or edit the saved coordinates.</p>
+                      <a
+                        href={googleMapUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-fuchsia-200 hover:text-white"
+                      >
+                        Open in Google Maps
+                      </a>
+                    </div>
+                    <div className="mt-3 rounded-2xl border border-white/10 bg-black/30 p-3">
+                      <label className="block text-xs font-medium text-zinc-300">
+                        Paste coordinates or Google Maps link
+                      </label>
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                        <input
+                          type="text"
+                          value={coordinateInput}
+                          onChange={(e) => setCoordinateInput(e.target.value)}
+                          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-zinc-500 outline-none focus:border-fuchsia-300/50 focus:ring-2 focus:ring-fuchsia-300/20"
+                          placeholder="10.170843, 122.979512 or Google Maps link"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleUsePastedCoordinates}
+                          className="rounded-xl border border-white/10 bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-zinc-200"
                         >
-                          {!Number.isNaN(parsedLat) && !Number.isNaN(parsedLng) && (
-                            <Marker position={{ lat: parsedLat, lng: parsedLng }} />
-                          )}
-                        </GoogleMap>
+                          Use Coordinates
+                        </button>
                       </div>
-                    )}
+                      <p className="mt-2 text-xs text-zinc-500">
+                        In Google Maps, right-click the exact pin and copy the coordinates, or paste a shared Maps URL.
+                      </p>
+                    </div>
                   </div>
                   {locationStatus && (
-                    <p className="mt-2 text-xs text-gray-600">{locationStatus}</p>
+                    <p className="mt-2 text-xs text-zinc-300">{locationStatus}</p>
                   )}
                 </div>
                 <div>
@@ -680,8 +826,8 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Required Documents */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Required Documents</h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Required Documents</h3>
               <div className="space-y-4">
                 {/* Business Permit */}
                 <div>
@@ -754,8 +900,8 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Account Security */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Security</h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Account Security</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

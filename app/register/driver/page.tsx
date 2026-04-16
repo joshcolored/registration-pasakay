@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { getDatabase, ref, set } from 'firebase/database';
+import { useRegisterScrollMotion } from '@/components/RegisterMotion';
 
 // Initialize Firebase (reuse from env config)
 if (!getApps().length) {
@@ -29,6 +30,8 @@ const CLOUDINARY_UPLOAD_PRESET = 'ml_default';
 
 export default function DriverRegistrationPage() {
   const router = useRouter();
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  useRegisterScrollMotion(pageRef);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -273,13 +276,20 @@ export default function DriverRegistrationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      ref={pageRef}
+      className="min-h-screen bg-[#050505] text-white"
+      style={{
+        backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
+        backgroundSize: '18px 18px',
+      }}
+    >
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/60 shadow-sm backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <button
             onClick={() => router.push('/register')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-2 text-zinc-300 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Back</span>
@@ -289,12 +299,22 @@ export default function DriverRegistrationPage() {
 
       {/* Form */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="gsap-hero mb-8 rounded-[2rem] border border-white/10 bg-white/[0.05] p-6 text-center shadow-[0_24px_90px_rgba(0,0,0,0.45)] sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-200">Driver onboarding</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+            Register as Driver
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-zinc-400">
+            Submit your profile, vehicle details, and documents for admin verification.
+          </p>
+        </div>
+
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.45)] sm:p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-white mb-2">
               Register as Driver
-            </h1>
-            <p className="text-gray-600">
+            </h2>
+            <p className="text-zinc-400">
               Fill in your details to start driving with Pasakay
             </p>
           </div>
@@ -308,11 +328,11 @@ export default function DriverRegistrationPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Personal Information */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Personal Information</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Full Name <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -320,13 +340,13 @@ export default function DriverRegistrationPage() {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
                     placeholder="Full Name"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Email Address <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -334,13 +354,13 @@ export default function DriverRegistrationPage() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
                     placeholder="name@example.com"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Phone Number <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -348,7 +368,7 @@ export default function DriverRegistrationPage() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
                     placeholder="09XXXXXXXXX"
                     maxLength={11}
                     required
@@ -358,18 +378,18 @@ export default function DriverRegistrationPage() {
             </div>
 
             {/* Vehicle Information */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Vehicle Information</h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Vehicle Information</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Vehicle Type <span className="text-red-600">*</span>
                   </label>
                   <select
                     name="vehicleType"
                     value={formData.vehicleType}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20 [&>option]:bg-zinc-950 [&>option]:text-white"
                     required
                   >
                     <option value="motorcycle">Motorcycle</option>
@@ -377,7 +397,7 @@ export default function DriverRegistrationPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Vehicle Model <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -385,13 +405,13 @@ export default function DriverRegistrationPage() {
                     name="vehicleModel"
                     value={formData.vehicleModel}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
                     placeholder="Honda TMX 155"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Plate Number <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -399,13 +419,13 @@ export default function DriverRegistrationPage() {
                     name="vehicleLicense"
                     value={formData.vehicleLicense}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
                     placeholder="ABC 1234"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Vehicle Number/ID <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -413,7 +433,7 @@ export default function DriverRegistrationPage() {
                     name="vehicleNumber"
                     value={formData.vehicleNumber}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
                     placeholder="TRI-001"
                     required
                   />
@@ -422,15 +442,15 @@ export default function DriverRegistrationPage() {
             </div>
 
             {/* Document Uploads */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Required Documents</h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Required Documents</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 {/* Driver's License */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Driver&apos;s License <span className="text-red-600">*</span>
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                  <div className="rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.03] p-4 text-center transition-colors hover:border-blue-300/50">
                     <input
                       type="file"
                       accept="image/*"
@@ -451,7 +471,7 @@ export default function DriverRegistrationPage() {
                       ) : (
                         <div>
                           <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">Click to upload</p>
+                          <p className="text-sm text-zinc-300">Click to upload</p>
                         </div>
                       )}
                     </label>
@@ -460,10 +480,10 @@ export default function DriverRegistrationPage() {
 
                 {/* OR/CR */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     OR/CR Document <span className="text-red-600">*</span>
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                  <div className="rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.03] p-4 text-center transition-colors hover:border-blue-300/50">
                     <input
                       type="file"
                       accept="image/*"
@@ -484,7 +504,7 @@ export default function DriverRegistrationPage() {
                       ) : (
                         <div>
                           <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">Click to upload</p>
+                          <p className="text-sm text-zinc-300">Click to upload</p>
                         </div>
                       )}
                     </label>
@@ -494,11 +514,11 @@ export default function DriverRegistrationPage() {
             </div>
 
             {/* Password */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Security</h3>
+            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Account Security</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Password <span className="text-red-600">*</span>
                   </label>
                   <div className="relative">
@@ -507,21 +527,21 @@ export default function DriverRegistrationPage() {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 text-gray-900 placeholder-gray-400"
+                      className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 pr-10 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
                       placeholder="Minimum 6 characters"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Confirm Password <span className="text-red-600">*</span>
                   </label>
                   <div className="relative">
@@ -530,14 +550,14 @@ export default function DriverRegistrationPage() {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 text-gray-900 placeholder-gray-400"
+                      className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 pr-10 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
                       placeholder="Re-enter password"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400"
                     >
                       {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -553,9 +573,9 @@ export default function DriverRegistrationPage() {
                 id="terms"
                 checked={agreeToTerms}
                 onChange={(e) => setAgreeToTerms(e.target.checked)}
-                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="mt-1 h-4 w-4 rounded border-white/20 bg-black text-blue-400 focus:ring-blue-400"
               />
-              <label htmlFor="terms" className="text-sm text-gray-700">
+              <label htmlFor="terms" className="text-sm text-zinc-300">
                 I agree to the Terms of Service and Privacy Policy for Drivers. I understand that my account requires admin approval.
               </label>
             </div>
