@@ -8,6 +8,26 @@ import { User } from '@/types';
 import { Search, UserX, UserCheck, Mail, Phone, Calendar, Trash2 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 
+const toJoinedTimestamp = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    const numericValue = Number(trimmedValue);
+
+    if (Number.isFinite(numericValue)) {
+      return numericValue;
+    }
+
+    const parsedValue = Date.parse(trimmedValue);
+    return Number.isFinite(parsedValue) ? parsedValue : 0;
+  }
+
+  return 0;
+};
+
 export default function UsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
@@ -50,7 +70,7 @@ export default function UsersPage() {
                 profileImageUrl: user.profileImage || user.profileImageUrl,
                 rating: user.rating || 5.0,
                 totalTrips: user.totalTrips || 0,
-                createdAt: user.createdAt || Date.now(),
+                createdAt: toJoinedTimestamp(user.createdAt),
                 isActive: user.active !== undefined ? user.active : (user.isActive !== undefined ? user.isActive : true),
               });
             }
@@ -101,6 +121,8 @@ export default function UsersPage() {
   }, [searchQuery, filterStatus, users]);
 
   const formatDate = (timestamp: number) => {
+    if (!timestamp || !Number.isFinite(timestamp)) return 'N/A';
+
     return new Date(timestamp).toLocaleDateString('en-PH', {
       year: 'numeric',
       month: 'short',
