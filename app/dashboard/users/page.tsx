@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, onValue, get } from 'firebase/database';
+import { ref, onValue, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { User } from '@/types';
-import { Search, UserX, UserCheck, Mail, Phone, Calendar } from 'lucide-react';
+import { Search, UserX, UserCheck, Mail, Phone, Calendar, Trash2 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 
 export default function UsersPage() {
@@ -15,6 +15,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if admin is logged in
@@ -105,6 +106,31 @@ export default function UsersPage() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const deletePassengerAccount = async (user: User) => {
+    const userName = user.name || 'this passenger';
+    const confirmed = window.confirm(
+      `Delete ${userName}?\n\nThis will remove the passenger user record and saved favorites. This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingUserId(user.userId);
+
+    try {
+      await Promise.all([
+        remove(ref(database, `users/${user.userId}`)),
+        remove(ref(database, `passengerFavorites/${user.userId}`)),
+      ]);
+
+      alert(`${userName} has been deleted.`);
+    } catch (error) {
+      console.error('Error deleting passenger:', error);
+      alert('Failed to delete passenger. Please try again.');
+    } finally {
+      setDeletingUserId(null);
+    }
   };
 
   if (loading) {
@@ -214,12 +240,13 @@ export default function UsersPage() {
                   <th className="text-left py-4 px-6 font-bold text-black">Total Trips</th>
                   <th className="text-left py-4 px-6 font-bold text-black">Status</th>
                   <th className="text-left py-4 px-6 font-bold text-black">Joined</th>
+                  <th className="text-left py-4 px-6 font-bold text-black">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-black font-semibold">
+                    <td colSpan={8} className="text-center py-8 text-black font-semibold">
                       No passengers found
                     </td>
                   </tr>
@@ -284,6 +311,25 @@ export default function UsersPage() {
                           <Calendar className="w-4 h-4 text-gray-500" />
                           <span className="text-black font-semibold">{formatDate(user.createdAt)}</span>
                         </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <button
+                          onClick={() => deletePassengerAccount(user)}
+                          disabled={deletingUserId === user.userId}
+                          className="flex items-center space-x-1 px-3 py-1.5 bg-gray-800 hover:bg-black disabled:bg-gray-500 text-white text-xs font-semibold rounded-lg transition-colors"
+                        >
+                          {deletingUserId === user.userId ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              <span>Deleting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </>
+                          )}
+                        </button>
                       </td>
                     </tr>
                   ))
