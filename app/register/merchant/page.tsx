@@ -67,6 +67,7 @@ const merchantCategoriesByType = {
 export default function MerchantRegistrationPage() {
   const router = useRouter();
   const pageRef = useRef<HTMLDivElement | null>(null);
+  const errorRef = useRef<HTMLDivElement | null>(null);
   useRegisterScrollMotion(pageRef);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -277,6 +278,13 @@ export default function MerchantRegistrationPage() {
     );
   };
 
+  const showFormError = (message: string) => {
+    setError(message);
+    requestAnimationFrame(() => {
+      errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
+
   // Upload file to Cloudinary
   const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
     const formData = new FormData();
@@ -306,39 +314,39 @@ export default function MerchantRegistrationPage() {
 
     // Validation
     if (!formData.businessName || !formData.ownerName || !formData.email || !formData.phone || !formData.address || !formData.password) {
-      setError('Please fill in all required fields');
+      showFormError('Please fill in all required fields');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      showFormError('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+      showFormError('Password must be at least 6 characters');
       return;
     }
 
     if (!formData.phone.match(/^09\d{9}$/)) {
-      setError('Phone number must be in format 09XX-XXX-XXXX');
+      showFormError('Phone number must be in format 09XXXXXXXXX');
       return;
     }
 
     const parsedLat = parseFloat(locationLat);
     const parsedLng = parseFloat(locationLng);
     if (Number.isNaN(parsedLat) || Number.isNaN(parsedLng)) {
-      setError('Please pin your business location on the map or use your current location.');
+      showFormError('Please set your business location using current location, coordinates, or the location search.');
       return;
     }
 
     if (!businessPermitFile) {
-      setError('Please upload your Business Permit');
+      showFormError('Please upload your Business Permit');
       return;
     }
 
     if (!agreeToTerms) {
-      setError('Please agree to the Terms of Service');
+      showFormError('Please agree to the Terms of Service');
       return;
     }
 
@@ -436,13 +444,13 @@ export default function MerchantRegistrationPage() {
     } catch (err: any) {
       console.error('Registration error:', err);
       if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already registered');
+        showFormError('This email is already registered');
       } else if (err.code === 'auth/invalid-email') {
-        setError('Invalid email address');
+        showFormError('Invalid email address');
       } else if (err.code === 'auth/weak-password') {
-        setError('Password is too weak');
+        showFormError('Password is too weak');
       } else {
-        setError(err.message || 'Registration failed. Please try again.');
+        showFormError(err.message || 'Registration failed. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -530,7 +538,7 @@ export default function MerchantRegistrationPage() {
           </div>
 
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+            <div ref={errorRef} className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-800">{error}</p>
             </div>
@@ -965,6 +973,12 @@ export default function MerchantRegistrationPage() {
                 I agree to the Terms of Service and Privacy Policy for Merchants. I understand that my account requires admin approval before I can start accepting orders.
               </label>
             </div>
+
+            {error && (
+              <div className="rounded-2xl border border-red-300/40 bg-red-500/10 p-4 text-sm font-medium text-red-100">
+                {error}
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
