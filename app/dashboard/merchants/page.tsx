@@ -51,6 +51,28 @@ const categoryIcons: Record<string, string> = {
   desserts: '🍰',
   drinks: '🥤',
   grocery: '🛒',
+  vapeStore: '\u{1F4A8}',
+  pharmacy: '\u{1F48A}',
+  other: '\u{1F3EA}',
+};
+
+const categoryLabels: Record<string, string> = {
+  restaurant: 'Restaurant',
+  cafe: 'Cafe',
+  fastFood: 'Fast Food',
+  bakery: 'Bakery',
+  desserts: 'Desserts',
+  drinks: 'Drinks',
+  grocery: 'Grocery',
+  vapeStore: 'Vape Store',
+  pharmacy: 'Pharmacy',
+  other: 'Other',
+};
+
+const businessTypeLabels: Record<string, string> = {
+  food: 'Food',
+  vape: 'Vape Store',
+  medicine: 'Medicine',
 };
 
 export default function MerchantsPage() {
@@ -285,10 +307,13 @@ export default function MerchantsPage() {
     });
   };
 
-  const getCategoryDisplay = (category: string) => {
+  const getCategoryDisplay = (category: string, businessType?: string) => {
     const icon = categoryIcons[category] || '🏪';
-    const name = category?.charAt(0).toUpperCase() + category?.slice(1) || 'Unknown';
-    return `${icon} ${name}`;
+    const categoryName = categoryLabels[category] || 'Unknown';
+    const businessName = businessType ? businessTypeLabels[businessType] : '';
+    return businessName && businessName !== categoryName
+      ? `${icon} ${businessName} - ${categoryName}`
+      : `${icon} ${categoryName}`;
   };
 
   const deleteMerchantAccount = async (merchant: Merchant) => {
@@ -464,7 +489,7 @@ export default function MerchantsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">{getCategoryDisplay(merchant.category)}</p>
+                      <p className="text-sm text-gray-600 mt-1">{getCategoryDisplay(merchant.category, merchant.businessType)}</p>
                       
                       {/* Contact Info */}
                       <div className="mt-3 space-y-1">
