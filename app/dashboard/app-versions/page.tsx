@@ -8,9 +8,12 @@ import { Smartphone, Download, Save, AlertCircle, CheckCircle, Info, Bell, Send 
 
 interface AppVersionConfig {
   latestVersion: string;
+  latestBuildNumber: number;
   minVersion: string;
+  minBuildNumber: number;
   downloadUrl: string;
   releaseNotes: string;
+  forceUpdate: boolean;
   updatedAt: string;
   notifyTimestamp?: string;
 }
@@ -22,9 +25,12 @@ interface AppConfig {
 
 const defaultConfig: AppVersionConfig = {
   latestVersion: '1.0.0',
+  latestBuildNumber: 1,
   minVersion: '1.0.0',
+  minBuildNumber: 1,
   downloadUrl: '',
   releaseNotes: '',
+  forceUpdate: false,
   updatedAt: new Date().toISOString(),
 };
 
@@ -45,8 +51,8 @@ export default function AppVersionsPage() {
       if (snapshot.exists()) {
         const data = snapshot.val();
         setConfig({
-          passenger: data.passenger || { ...defaultConfig },
-          driver: data.driver || { ...defaultConfig },
+          passenger: { ...defaultConfig, ...(data.passenger || {}) },
+          driver: { ...defaultConfig, ...(data.driver || {}) },
         });
       }
       setLoading(false);
@@ -75,7 +81,11 @@ export default function AppVersionsPage() {
     }
   };
 
-  const updateConfig = (appType: 'passenger' | 'driver', field: keyof AppVersionConfig, value: string) => {
+  const updateConfig = (
+    appType: 'passenger' | 'driver',
+    field: keyof AppVersionConfig,
+    value: string | number | boolean
+  ) => {
     setConfig((prev) => ({
       ...prev,
       [appType]: {
@@ -146,6 +156,21 @@ export default function AppVersionsPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Latest Build Number *
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={appConfig.latestBuildNumber || 1}
+                onChange={(e) => updateConfig(appType, 'latestBuildNumber', parseInt(e.target.value) || 1)}
+                placeholder="e.g., 14"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+              />
+              <p className="text-xs text-gray-500 mt-1">Must match Play Store versionCode/build number</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Minimum Required Version *
               </label>
               <input
@@ -157,7 +182,37 @@ export default function AppVersionsPage() {
               />
               <p className="text-xs text-gray-500 mt-1">Users below this version will be forced to update</p>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Minimum Build Number *
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={appConfig.minBuildNumber || 1}
+                onChange={(e) => updateConfig(appType, 'minBuildNumber', parseInt(e.target.value) || 1)}
+                placeholder="e.g., 13"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+              />
+              <p className="text-xs text-gray-500 mt-1">Users below this build are blocked until they update</p>
+            </div>
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4">
+            <input
+              type="checkbox"
+              checked={!!appConfig.forceUpdate}
+              onChange={(e) => updateConfig(appType, 'forceUpdate', e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-orange-900">Force update enabled</span>
+              <span className="block text-xs text-orange-800">
+                Keep this on only when older builds cannot safely continue.
+              </span>
+            </span>
+          </label>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -168,7 +223,7 @@ export default function AppVersionsPage() {
                 type="url"
                 value={appConfig.downloadUrl}
                 onChange={(e) => updateConfig(appType, 'downloadUrl', e.target.value)}
-                placeholder="https://yoursite.com/app.apk"
+                placeholder="https://play.google.com/store/apps/details?id=your.package.name"
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
               />
               {appConfig.downloadUrl && (
@@ -264,8 +319,9 @@ export default function AppVersionsPage() {
             <p className="font-medium mb-1">How it works:</p>
             <ul className="list-disc list-inside space-y-1 text-blue-700">
               <li><strong>Latest Version:</strong> Users will see an optional update popup if their version is lower</li>
-              <li><strong>Minimum Version:</strong> Users MUST update if their version is below this (force update)</li>
-              <li><strong>Download URL:</strong> Where users will be redirected to download the APK</li>
+              <li><strong>Latest Build Number:</strong> Used for optional update prompts</li>
+              <li><strong>Minimum Build Number:</strong> Users below this build are blocked until they update</li>
+              <li><strong>Download URL:</strong> Use the Google Play Store app URL</li>
             </ul>
           </div>
         </div>
@@ -291,8 +347,9 @@ export default function AppVersionsPage() {
             <p className="font-medium">Important Notes:</p>
             <ul className="list-disc list-inside mt-1 space-y-1">
               <li>Version format should be semantic (e.g., 1.0.0, 1.2.3)</li>
-              <li>Make sure the download URL is accessible before updating</li>
-              <li>Force updates (min version) should only be used for critical updates</li>
+              <li>Build numbers should match Flutter build-number / Android versionCode</li>
+              <li>Make sure the Play Store URL is accessible before updating</li>
+              <li>Force updates should only be used for critical updates</li>
             </ul>
           </div>
         </div>
