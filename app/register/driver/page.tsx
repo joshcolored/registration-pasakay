@@ -333,42 +333,42 @@ export default function DriverRegistrationPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Full Name <span className="text-red-600">*</span>
+                    Full Name <span className="text-red-300">*</span>
                   </label>
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
+                    className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-zinc-950 placeholder-zinc-500 outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-300/30"
                     placeholder="Full Name"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Email Address <span className="text-red-600">*</span>
+                    Email Address <span className="text-red-300">*</span>
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
+                    className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-zinc-950 placeholder-zinc-500 outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-300/30"
                     placeholder="name@example.com"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Phone Number <span className="text-red-600">*</span>
+                    Phone Number <span className="text-red-300">*</span>
                   </label>
                   <input
                     type="tel"
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
+                    className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-zinc-950 placeholder-zinc-500 outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-300/30"
                     placeholder="09XXXXXXXXX"
                     maxLength={11}
                     required
@@ -383,13 +383,13 @@ export default function DriverRegistrationPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Vehicle Type <span className="text-red-600">*</span>
+                    Vehicle Type <span className="text-red-300">*</span>
                   </label>
                   <select
                     name="vehicleType"
                     value={formData.vehicleType}
                     onChange={handleInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20 [&>option]:bg-zinc-950 [&>option]:text-white"
+                    className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-zinc-950 outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-300/30 [&>option]:bg-white [&>option]:text-zinc-950"
                     required
                   >
                     <option value="motorcycle">Motorcycle</option>
@@ -398,42 +398,42 @@ export default function DriverRegistrationPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Vehicle Model <span className="text-red-600">*</span>
+                    Vehicle Model <span className="text-red-300">*</span>
                   </label>
                   <input
                     type="text"
                     name="vehicleModel"
                     value={formData.vehicleModel}
                     onChange={handleInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
+                    className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-zinc-950 placeholder-zinc-500 outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-300/30"
                     placeholder="Honda TMX 155"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Plate Number <span className="text-red-600">*</span>
+                    Plate Number <span className="text-red-300">*</span>
                   </label>
                   <input
                     type="text"
                     name="vehicleLicense"
                     value={formData.vehicleLicense}
                     onChange={handleInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
+                    className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-zinc-950 placeholder-zinc-500 outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-300/30"
                     placeholder="ABC 1234"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Vehicle Number/ID <span className="text-red-600">*</span>
+                    Vehicle Number/ID <span className="text-red-300">*</span>
                   </label>
                   <input
                     type="text"
                     name="vehicleNumber"
                     value={formData.vehicleNumber}
                     onChange={handleInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
+                    className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-zinc-950 placeholder-zinc-500 outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-300/30"
                     placeholder="TRI-001"
                     required
                   />
@@ -448,7 +448,7 @@ export default function DriverRegistrationPage() {
                 {/* Driver's License */}
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Driver&apos;s License <span className="text-red-600">*</span>
+                    Driver&apos;s License <span className="text-red-300">*</span>
                   </label>
                   <div className="rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.03] p-4 text-center transition-colors hover:border-blue-300/50">
                     <input
@@ -481,7 +481,7 @@ export default function DriverRegistrationPage() {
                 {/* OR/CR */}
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    OR/CR Document <span className="text-red-600">*</span>
+                    OR/CR Document <span className="text-red-300">*</span>
                   </label>
                   <div className="rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.03] p-4 text-center transition-colors hover:border-blue-300/50">
                     <input
@@ -519,7 +519,7 @@ export default function DriverRegistrationPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Password <span className="text-red-600">*</span>
+                    Password <span className="text-red-300">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -527,7 +527,7 @@ export default function DriverRegistrationPage() {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 pr-10 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
+                      className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 pr-10 text-zinc-950 placeholder-zinc-500 outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-300/30"
                       placeholder="Minimum 6 characters"
                       required
                     />
@@ -542,7 +542,7 @@ export default function DriverRegistrationPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Confirm Password <span className="text-red-600">*</span>
+                    Confirm Password <span className="text-red-300">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -550,7 +550,7 @@ export default function DriverRegistrationPage() {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 pr-10 text-white placeholder-zinc-500 outline-none focus:border-blue-300/50 focus:ring-2 focus:ring-blue-300/20"
+                      className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 pr-10 text-zinc-950 placeholder-zinc-500 outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-300/30"
                       placeholder="Re-enter password"
                       required
                     />

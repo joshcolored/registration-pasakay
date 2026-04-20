@@ -630,44 +630,44 @@ export default function MerchantRegistrationPage() {
               <h3 className="text-lg font-semibold text-white mb-4">Business Information</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Business Name <span className="text-red-600">*</span>
+                  <label className="block text-sm font-medium text-zinc-200 mb-2">
+                    Business Name <span className="text-red-300">*</span>
                   </label>
                   <input
                     type="text"
                     name="businessName"
                     value={formData.businessName}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
                     placeholder="Branch"
                     required
                   />
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Owner Name <span className="text-red-600">*</span>
+                    <label className="block text-sm font-medium text-zinc-200 mb-2">
+                      Owner Name <span className="text-red-300">*</span>
                     </label>
                     <input
                       type="text"
                       name="ownerName"
                       value={formData.ownerName}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                      className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
                       placeholder="Owner Name"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone Number <span className="text-red-600">*</span>
+                    <label className="block text-sm font-medium text-zinc-200 mb-2">
+                      Phone Number <span className="text-red-300">*</span>
                     </label>
                     <input
                       type="tel"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                      className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
                       placeholder="09XXXXXXXXX"
                       maxLength={11}
                       required
@@ -675,29 +675,29 @@ export default function MerchantRegistrationPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address <span className="text-red-600">*</span>
+                  <label className="block text-sm font-medium text-zinc-200 mb-2">
+                    Email Address <span className="text-red-300">*</span>
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
                     placeholder="business@example.com"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Business Address <span className="text-red-600">*</span>
+                  <label className="block text-sm font-medium text-zinc-200 mb-2">
+                    Business Address <span className="text-red-300">*</span>
                   </label>
                   <textarea
                     name="address"
                     value={formData.address}
                     onChange={handleInputChange}
                     rows={2}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
                     placeholder="Complete business address"
                     required
                   />
@@ -810,7 +810,7 @@ export default function MerchantRegistrationPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-zinc-200 mb-2">
                     Business Description (Optional)
                   </label>
                   <textarea
@@ -818,7 +818,7 @@ export default function MerchantRegistrationPage() {
                     value={formData.description}
                     onChange={handleInputChange}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
                     placeholder="Describe your business..."
                   />
                 </div>
@@ -831,8 +831,8 @@ export default function MerchantRegistrationPage() {
               <div className="space-y-4">
                 {/* Business Permit */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Business Permit * <span className="text-red-600">(Required)</span>
+                  <label className="block text-sm font-medium text-zinc-200 mb-2">
+                    Business Permit * <span className="text-red-300">(Required)</span>
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors cursor-pointer">
                     <input
@@ -865,8 +865,8 @@ export default function MerchantRegistrationPage() {
 
                 {/* Sanitary Permit */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sanitary Permit <span className="text-gray-500">(Optional but recommended)</span>
+                  <label className="block text-sm font-medium text-zinc-200 mb-2">
+                    Sanitary Permit <span className="text-zinc-400">(Optional but recommended)</span>
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors cursor-pointer">
                     <input
@@ -904,8 +904,8 @@ export default function MerchantRegistrationPage() {
               <h3 className="text-lg font-semibold text-white mb-4">Account Security</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password <span className="text-red-600">*</span>
+                  <label className="block text-sm font-medium text-zinc-200 mb-2">
+                    Password <span className="text-red-300">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -913,7 +913,7 @@ export default function MerchantRegistrationPage() {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10 text-gray-900 placeholder-gray-400"
+                      className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10 text-zinc-950 placeholder-zinc-500"
                       placeholder="Minimum 6 characters"
                       required
                     />
@@ -927,8 +927,8 @@ export default function MerchantRegistrationPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm Password <span className="text-red-600">*</span>
+                  <label className="block text-sm font-medium text-zinc-200 mb-2">
+                    Confirm Password <span className="text-red-300">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -936,7 +936,7 @@ export default function MerchantRegistrationPage() {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10 text-gray-900 placeholder-gray-400"
+                      className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10 text-zinc-950 placeholder-zinc-500"
                       placeholder="Re-enter password"
                       required
                     />
@@ -961,7 +961,7 @@ export default function MerchantRegistrationPage() {
                 onChange={(e) => setAgreeToTerms(e.target.checked)}
                 className="mt-1 w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
               />
-              <label htmlFor="terms" className="text-sm text-gray-700">
+              <label htmlFor="terms" className="text-sm text-zinc-200">
                 I agree to the Terms of Service and Privacy Policy for Merchants. I understand that my account requires admin approval before I can start accepting orders.
               </label>
             </div>
