@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Car, 
-  MapPin, 
-  CreditCard, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Users,
+  Car,
+  MapPin,
+  CreditCard,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -17,16 +17,64 @@ import {
   Map,
   Smartphone,
   Store,
-  Truck
+  Truck,
+  Radio,
+  ShieldCheck,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { auth, database } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue } from 'firebase/database';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
+
+const navGroups = [
+  {
+    label: 'Overview',
+    items: [{ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { name: 'Passengers', href: '/dashboard/users', icon: Users },
+      { name: 'Drivers', href: '/dashboard/drivers', icon: Car },
+      { name: 'Driver Verification', href: '/dashboard/driver-verification', icon: UserCheck },
+      { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
+      { name: 'Service Areas', href: '/dashboard/service-areas', icon: Map },
+    ],
+  },
+  {
+    label: 'Commerce',
+    items: [
+      { name: 'Merchants', href: '/dashboard/merchants', icon: Store },
+      { name: 'Food Orders', href: '/dashboard/food-orders', icon: Truck },
+      { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { name: 'App Versions', href: '/dashboard/app-versions', icon: Smartphone },
+      { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+    ],
+  },
+];
+
+const pageDescriptions: Record<string, string> = {
+  '/dashboard': 'Live admin overview',
+  '/dashboard/users': 'Passenger accounts',
+  '/dashboard/drivers': 'Driver accounts',
+  '/dashboard/driver-verification': 'Driver review queue',
+  '/dashboard/merchants': 'Merchant applications',
+  '/dashboard/food-orders': 'Delivery order activity',
+  '/dashboard/trips': 'Trip monitoring',
+  '/dashboard/service-areas': 'Coverage management',
+  '/dashboard/payments': 'Payment verification',
+  '/dashboard/app-versions': 'Release controls',
+  '/dashboard/settings': 'Platform settings',
+};
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
@@ -36,7 +84,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoLoaded, setLogoLoaded] = useState(false);
 
-  // Load cached logo from localStorage on mount (client-side only)
+  const menuItems = useMemo(() => navGroups.flatMap((group) => group.items), []);
+  const currentPage = menuItems.find((item) => item.href === pathname)?.name || 'Dashboard';
+  const currentDescription = pageDescriptions[pathname] || 'Pasakay operations';
+  const adminInitial = (adminName || 'A').charAt(0).toUpperCase();
+
   useEffect(() => {
     const cached = localStorage.getItem('cachedLogoUrl');
     if (cached) {
@@ -45,40 +97,46 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setLogoLoaded(true);
   }, []);
 
-  // Get admin info from localStorage and load logo with real-time listener
   useEffect(() => {
     const adminUser = localStorage.getItem('adminUser');
     if (adminUser) {
-      const user = JSON.parse(adminUser);
-      setAdminName(user.name || 'Admin');
+      try {
+        const user = JSON.parse(adminUser);
+        setAdminName(user.name || 'Admin');
+      } catch {
+        setAdminName('Admin');
+      }
     }
 
-    // Set up real-time listener for logo
     const appRef = ref(database, 'settings/app');
-    const unsubscribe = onValue(appRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const newLogoUrl = data.logoUrl && data.logoUrl.trim() !== '' ? data.logoUrl : null;
-        
-        setLogoUrl(newLogoUrl);
-        
-        if (newLogoUrl) {
-          localStorage.setItem('cachedLogoUrl', newLogoUrl);
+    const unsubscribe = onValue(
+      appRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const newLogoUrl =
+            typeof data.logoUrl === 'string' && data.logoUrl.trim() !== ''
+              ? data.logoUrl.trim()
+              : null;
+
+          setLogoUrl(newLogoUrl);
+
+          if (newLogoUrl) {
+            localStorage.setItem('cachedLogoUrl', newLogoUrl);
+          } else {
+            localStorage.removeItem('cachedLogoUrl');
+          }
         } else {
+          setLogoUrl(null);
           localStorage.removeItem('cachedLogoUrl');
         }
-      } else {
-        setLogoUrl(null);
-        localStorage.removeItem('cachedLogoUrl');
+      },
+      (error) => {
+        console.error('Error loading logo:', error);
       }
-    }, (error) => {
-      console.error('Error loading logo:', error);
-    });
+    );
 
-    // Cleanup listener on unmount
-    return () => {
-      off(appRef);
-    };
+    return () => unsubscribe();
   }, []);
 
   const handleLogout = async () => {
@@ -91,149 +149,178 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
 
-  const menuItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Users', href: '/dashboard/users', icon: Users },
-    { name: 'Drivers', href: '/dashboard/drivers', icon: Car },
-    { name: 'Driver Verification', href: '/dashboard/driver-verification', icon: UserCheck },
-    { name: 'Merchants', href: '/dashboard/merchants', icon: Store },
-    { name: 'Food Orders', href: '/dashboard/food-orders', icon: Truck },
-    { name: 'Trips', href: '/dashboard/trips', icon: MapPin },
-    { name: 'Service Areas', href: '/dashboard/service-areas', icon: Map },
-    { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
-    { name: 'App Versions', href: '/dashboard/app-versions', icon: Smartphone },
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Mobile Sidebar Overlay */}
+    <div className="min-h-screen bg-[#f6f8f5] text-[#18211f]">
+      <div
+        className="pointer-events-none fixed inset-0 opacity-[0.28]"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(31,111,104,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(31,111,104,0.05) 1px, transparent 1px)',
+          backgroundSize: '34px 34px',
+        }}
+      />
+
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+        <div
+          className="fixed inset-0 z-40 bg-[#18211f]/45 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed top-0 left-0 z-50 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0
-      `}>
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center justify-between p-6 border-b">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-white rounded-lg shadow-md flex items-center justify-center p-1">
-                <img
-                  src={logoLoaded && logoUrl ? logoUrl : "/pasakay-logo.jpg"}
-                  alt="Pasakay Logo"
-                  className="w-full h-full object-contain rounded-lg"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = '/pasakay-logo.jpg';
-                  }}
-                />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-800">Pasakay</h1>
-                <p className="text-xs text-gray-500">Admin Panel</p>
-              </div>
+      <aside
+        className={`
+          fixed left-0 top-0 z-50 h-full w-72 transform border-r border-[#dfe5e1] bg-[#fbfcf9]/95 shadow-[0_24px_80px_rgba(24,33,31,0.10)] backdrop-blur-xl transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
+        `}
+      >
+        <div className="flex h-full flex-col">
+          <div className="border-b border-[#e5e2d8] px-5 py-5">
+            <div className="flex items-center justify-between gap-3">
+              <Link
+                href="/dashboard"
+                className="flex min-w-0 items-center gap-3 rounded-md outline-none transition focus-visible:ring-2 focus-visible:ring-[#1f6f68]/25"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-[#dfe5e1] bg-white p-1.5 shadow-sm">
+                  <img
+                    src={logoLoaded && logoUrl ? logoUrl : '/pasakay-logo.jpg'}
+                    alt="Pasakay Logo"
+                    className="h-full w-full rounded-sm object-contain"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/pasakay-logo.jpg';
+                    }}
+                  />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-lg font-bold tracking-tight text-[#18211f]">
+                    Pasakay
+                  </span>
+                  <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.16em] text-[#66736f]">
+                    Admin Console
+                  </span>
+                </span>
+              </Link>
+
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="rounded-md p-2 text-[#6c7672] transition hover:bg-[#edf0eb] hover:text-[#18211f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f6f68]/25 lg:hidden"
+                aria-label="Close navigation"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-gray-500 hover:text-gray-700"
-            >
-              <X className="w-6 h-6" />
-            </button>
+
+            <div className="mt-5 flex items-center gap-2 rounded-md border border-[#cfe4df] bg-[#eff8f5] px-3 py-2 text-[#1f6f68]">
+              <Radio className="h-4 w-4" />
+              <span className="text-xs font-bold uppercase tracking-[0.14em]">Realtime active</span>
+            </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4">
-            <ul className="space-y-2">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-                
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`
-                        flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors
-                        ${isActive 
-                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white' 
-                          : 'text-gray-700 hover:bg-gray-100'
-                        }
-                      `}
-                      onClick={() => setSidebarOpen(false)}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span className="font-medium">{item.name}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+          <nav className="flex-1 overflow-y-auto px-3 py-4">
+            <div className="space-y-5">
+              {navGroups.map((group) => (
+                <div key={group.label}>
+                  <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#89918d]">
+                    {group.label}
+                  </div>
+                  <ul className="space-y-1">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = pathname === item.href;
+
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            className={`
+                              group flex min-h-10 items-center gap-3 rounded-md px-3 py-2.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f6f68]/25
+                              ${
+                                isActive
+                                  ? 'bg-[#1f6f68] text-white shadow-[0_10px_24px_rgba(31,111,104,0.18)]'
+                                  : 'text-[#49534f] hover:bg-[#edf0eb] hover:text-[#18211f]'
+                              }
+                            `}
+                            onClick={() => setSidebarOpen(false)}
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="truncate font-semibold">{item.name}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </nav>
 
-          {/* User Info & Logout */}
-          <div className="p-4 border-t">
-            <div className="flex items-center space-x-3 mb-3 px-4 py-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold">
-                  {adminName.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-800">{adminName}</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+          <div className="border-t border-[#e5e2d8] p-4">
+            <div className="mb-3 rounded-md border border-[#dfe5e1] bg-white p-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#e8f4f2] text-[#1f6f68]">
+                  <span className="text-sm font-bold">{adminInitial}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-[#18211f]">{adminName || 'Admin'}</p>
+                  <p className="mt-0.5 text-xs text-[#66736f]">Administrator</p>
+                </div>
+                <ShieldCheck className="h-4 w-4 text-[#1f6f68]" />
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-[#b42318] transition hover:bg-[#f8e7e4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b42318]/20"
             >
-              <LogOut className="w-5 h-5" />
-              <span className="font-medium">Logout</span>
+              <LogOut className="h-4 w-4" />
+              <span>Logout</span>
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="lg:ml-64">
-        {/* Top Bar */}
-        <header className="bg-white shadow-sm sticky top-0 z-30">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center space-x-4">
+      <div className="relative lg:ml-72">
+        <header className="sticky top-0 z-30 border-b border-[#dfe5e1] bg-[#f6f8f5]/92 backdrop-blur-xl">
+          <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-3 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden text-gray-700 hover:text-gray-900"
+                className="rounded-md border border-[#dfe5e1] bg-white p-2 text-[#49534f] shadow-sm transition hover:bg-[#edf0eb] hover:text-[#18211f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f6f68]/25 lg:hidden"
+                aria-label="Open navigation"
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="h-5 w-5" />
               </button>
-              <h2 className="text-xl font-semibold text-gray-800">
-                {menuItems.find(item => item.href === pathname)?.name || 'Dashboard'}
-              </h2>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7a837f]">
+                  {currentDescription}
+                </p>
+                <h2 className="truncate text-lg font-bold text-[#18211f]">{currentPage}</h2>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
+
+            <div className="flex items-center gap-3">
+              <div className="hidden items-center gap-2 rounded-md border border-[#cfe4df] bg-white px-3 py-2 text-[#1f6f68] shadow-sm md:flex">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-xs font-bold uppercase tracking-[0.12em]">Live</span>
+              </div>
               <NotificationBell />
-              <div className="hidden md:flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-semibold">
-                    {adminName.charAt(0).toUpperCase()}
-                  </span>
+              <div className="hidden items-center gap-2 rounded-md border border-[#dfe5e1] bg-white py-1.5 pl-1.5 pr-3 shadow-sm md:flex">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#e8f4f2] text-[#1f6f68]">
+                  <span className="text-sm font-bold">{adminInitial}</span>
                 </div>
-                <span className="text-sm font-medium text-gray-700">{adminName}</span>
+                <span className="max-w-32 truncate text-sm font-semibold text-[#49534f]">
+                  {adminName || 'Admin'}
+                </span>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="min-h-screen">
+        <main className="admin-content min-h-[calc(100vh-65px)]">
           {children}
         </main>
       </div>

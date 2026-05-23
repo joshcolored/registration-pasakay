@@ -62,7 +62,7 @@ export function useRegisterScrollMotion(scopeRef: RefObject<HTMLElement | null>)
             ease: 'sine.inOut',
           });
         });
-      }, scope);
+      }, scope as Element);
 
       cleanup = () => ctx.revert();
     }

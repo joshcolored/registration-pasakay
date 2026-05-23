@@ -278,13 +278,6 @@ export default function MerchantRegistrationPage() {
     );
   };
 
-  const showFormError = (message: string) => {
-    setError(message);
-    requestAnimationFrame(() => {
-      errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-  };
-
   // Upload file to Cloudinary
   const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
     const formData = new FormData();
@@ -308,6 +301,13 @@ export default function MerchantRegistrationPage() {
     return data.secure_url;
   };
 
+  const showFormError = (message: string) => {
+    setError(message);
+    requestAnimationFrame(() => {
+      errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -329,7 +329,7 @@ export default function MerchantRegistrationPage() {
     }
 
     if (!formData.phone.match(/^09\d{9}$/)) {
-      showFormError('Phone number must be in format 09XXXXXXXXX');
+      showFormError('Phone number must be in format 09XX-XXX-XXXX');
       return;
     }
 
@@ -459,18 +459,18 @@ export default function MerchantRegistrationPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-10 h-10 text-green-600" />
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f4ef] p-4">
+        <div className="w-full max-w-md rounded-lg border border-[#d9d4c6] bg-white p-8 text-center shadow-[0_20px_50px_rgba(24,33,31,0.08)]">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50">
+            <CheckCircle className="h-8 w-8 text-emerald-700" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Merchant Registration Submitted!</h2>
-          <p className="text-gray-600 mb-4">
+          <h2 className="mb-2 text-2xl font-semibold text-[#18211f]">Merchant Registration Submitted</h2>
+          <p className="mb-4 text-[#66736f]">
             Your merchant account has been created successfully.
           </p>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-left">
-            <p className="text-sm text-blue-900 font-medium mb-2">What&apos;s next?</p>
-            <ol className="text-sm text-blue-800 space-y-2">
+          <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-4 text-left">
+            <p className="mb-2 text-sm font-medium text-sky-900">What&apos;s next?</p>
+            <ol className="space-y-2 text-sm text-sky-800">
               <li>1. Check your email ({formData.email}) and verify your account</li>
               <li>2. Admin will review your documents and business details</li>
               <li>3. You&apos;ll be notified once approved</li>
@@ -479,12 +479,12 @@ export default function MerchantRegistrationPage() {
           </div>
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <p className="text-sm text-yellow-800">
-              ⚠️ Your account requires admin approval before you can start accepting orders.
+              Your account requires admin approval before you can start accepting orders.
             </p>
           </div>
           <button
             onClick={() => router.push('/register')}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors"
+            className="w-full rounded-md bg-[#1f6f68] py-3 font-semibold text-white transition-colors hover:bg-[#174c49]"
           >
             Back to Home
           </button>
@@ -496,58 +496,48 @@ export default function MerchantRegistrationPage() {
   return (
     <div
       ref={pageRef}
-      className="min-h-screen bg-[#050505] text-white"
-      style={{
-        backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
-        backgroundSize: '18px 18px',
-      }}
+      className="partner-form"
     >
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/60 shadow-sm backdrop-blur-xl">
+      <header className="partner-form-header sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <button
             onClick={() => router.push('/register')}
-            className="flex items-center gap-2 text-zinc-300 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#d9d4c6] bg-white px-4 py-2 text-xs font-bold text-[#18211f] shadow-sm transition-all duration-300 hover:border-[#a46312]/30 hover:bg-[#faf9f5]"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Registration Landing</span>
           </button>
         </div>
       </header>
 
       {/* Form */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="gsap-hero mb-8 rounded-[2rem] border border-white/10 bg-white/[0.05] p-6 text-center shadow-[0_24px_90px_rgba(0,0,0,0.45)] sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-200">Merchant onboarding</p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+        <div className="gsap-hero mb-8 p-6 text-center sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a46312]">Merchant onboarding</p>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-[#18211f] sm:text-5xl">
             Register as Merchant
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-zinc-400">
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[#66736f]">
             Add your store details, location, category, and permits for faster review.
           </p>
         </div>
 
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.45)] sm:p-8">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-white mb-2">
-              Register as Merchant
-            </h2>
-            <p className="text-zinc-400">
-              Join Pasakay and start selling food, vape, or medicine products
-            </p>
-          </div>
-
+        <div className="border border-[#e5e2d8] rounded-2xl bg-white shadow-sm p-6 sm:p-8 space-y-8">
           {error && (
-            <div ref={errorRef} className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+            <div ref={errorRef} className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-800">{error}</p>
+              <p className="text-sm text-red-800 font-medium">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
-              <h3 className="text-lg font-semibold text-white mb-4">Business Type <span className="text-red-300">*</span></h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Business Type */}
+            <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">
+                Business Type <span className="text-[#b42318]">*</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {businessTypeOptions.map((option) => (
                   <button
                     key={option.value}
@@ -557,15 +547,15 @@ export default function MerchantRegistrationPage() {
                       businessType: option.value,
                       category: merchantCategoriesByType[option.value][0].value,
                     }))}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    className={`p-5 rounded-xl border-2 transition-all text-left cursor-pointer flex flex-col justify-between min-h-28 shadow-sm ${
                       formData.businessType === option.value
-                        ? 'border-fuchsia-300 bg-fuchsia-300/10'
-                        : 'border-white/10 bg-white/[0.03] hover:border-white/25'
+                        ? 'border-[#a46312] bg-[#a46312]/5 ring-2 ring-[#a46312]/20'
+                        : 'border-[#d9d4c6] bg-white hover:border-[#a46312]/50'
                     }`}
                   >
-                    <div className="text-2xl mb-2">{option.icon}</div>
-                    <div className={`text-sm font-semibold ${
-                      formData.businessType === option.value ? 'text-fuchsia-100' : 'text-zinc-200'
+                    <div className="text-3xl">{option.icon}</div>
+                    <div className={`text-sm font-bold mt-3 ${
+                      formData.businessType === option.value ? 'text-[#a46312]' : 'text-[#18211f]'
                     }`}>
                       {option.label}
                     </div>
@@ -575,8 +565,8 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Business Logo */}
-            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
-              <h3 className="text-lg font-semibold text-white mb-4">Business Logo</h3>
+            <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">Business Logo</h3>
               <div className="flex justify-center">
                 <div className="relative">
                   <input
@@ -588,7 +578,7 @@ export default function MerchantRegistrationPage() {
                   />
                   <label
                     htmlFor="logo-upload"
-                    className="cursor-pointer block w-32 h-32 rounded-full border-2 border-dashed border-gray-300 hover:border-purple-500 transition-colors"
+                    className="cursor-pointer block w-32 h-32 rounded-full border-2 border-dashed border-[#cfc9bb] bg-white hover:border-[#a46312] hover:bg-[#a46312]/5 transition-all duration-300 shadow-sm relative overflow-hidden"
                   >
                     {logoPreview ? (
                       <img
@@ -597,9 +587,9 @@ export default function MerchantRegistrationPage() {
                         className="w-full h-full object-cover rounded-full"
                       />
                     ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                        <Upload className="w-8 h-8 mb-2" />
-                        <span className="text-xs">Add Logo</span>
+                      <div className="w-full h-full flex flex-col items-center justify-center text-[#66736f]">
+                        <Upload className="w-6 h-6 mb-1 text-[#66736f]" />
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Add Logo</span>
                       </div>
                     )}
                   </label>
@@ -608,23 +598,25 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Business Category */}
-            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
-              <h3 className="text-lg font-semibold text-white mb-4">Business Category <span className="text-red-300">*</span></h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">
+                Business Category <span className="text-[#b42318]">*</span>
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {categoryOptions.map((cat) => (
                   <button
                     key={cat.value}
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, category: cat.value }))}
-                    className={`p-4 rounded-lg border-2 transition-all ${
+                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center text-center cursor-pointer shadow-sm ${
                       formData.category === cat.value
-                        ? 'border-fuchsia-300 bg-fuchsia-300/10'
-                        : 'border-white/10 bg-white/[0.03] hover:border-white/25'
+                        ? 'border-[#a46312] bg-[#a46312]/5 ring-2 ring-[#a46312]/20'
+                        : 'border-[#d9d4c6] bg-white hover:border-[#a46312]/50'
                     }`}
                   >
-                    <div className="text-3xl mb-2">{cat.icon}</div>
-                    <div className={`text-sm font-medium ${
-                      formData.category === cat.value ? 'text-fuchsia-100' : 'text-zinc-200'
+                    <div className="text-3xl mb-1">{cat.icon}</div>
+                    <div className={`text-xs font-bold mt-2 ${
+                      formData.category === cat.value ? 'text-[#a46312]' : 'text-[#18211f]'
                     }`}>
                       {cat.label}
                     </div>
@@ -634,48 +626,48 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Business Information */}
-            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
-              <h3 className="text-lg font-semibold text-white mb-4">Business Information</h3>
-              <div className="space-y-4">
+            <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">Business Information</h3>
+              <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-200 mb-2">
-                    Business Name <span className="text-red-300">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Business Name <span className="text-[#b42318]">*</span>
                   </label>
                   <input
                     type="text"
                     name="businessName"
                     value={formData.businessName}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
-                    placeholder="Branch"
+                    className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
+                    placeholder="e.g. Pasakay Food Terminal"
                     required
                   />
                 </div>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-200 mb-2">
-                      Owner Name <span className="text-red-300">*</span>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                      Owner Name <span className="text-[#b42318]">*</span>
                     </label>
                     <input
                       type="text"
                       name="ownerName"
                       value={formData.ownerName}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
-                      placeholder="Owner Name"
+                      className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
+                      placeholder="e.g. Maria Clara"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-200 mb-2">
-                      Phone Number <span className="text-red-300">*</span>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                      Owner Phone Number <span className="text-[#b42318]">*</span>
                     </label>
                     <input
                       type="tel"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
+                      className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
                       placeholder="09XXXXXXXXX"
                       maxLength={11}
                       required
@@ -683,92 +675,97 @@ export default function MerchantRegistrationPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-200 mb-2">
-                    Email Address <span className="text-red-300">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Email Address <span className="text-[#b42318]">*</span>
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
-                    placeholder="business@example.com"
+                    className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
+                    placeholder="e.g. branch@pasakay.com"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-200 mb-2">
-                    Business Address <span className="text-red-300">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Business Address <span className="text-[#b42318]">*</span>
                   </label>
                   <textarea
                     name="address"
                     value={formData.address}
                     onChange={handleInputChange}
                     rows={2}
-                    className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
-                    placeholder="Complete business address"
+                    className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15 resize-none"
+                    placeholder="Complete business street address, city, province"
                     required
                   />
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+
+                {/* Map Section */}
+                <div className="rounded-2xl border border-[#e5e2d8] bg-white p-5 shadow-sm space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-medium text-white">Business Location</p>
-                      <p className="text-xs text-zinc-400">Search your store, use current location, or enter coordinates manually.</p>
+                      <p className="text-sm font-bold text-[#18211f]">Store Pin Location</p>
+                      <p className="text-xs text-[#66736f] mt-0.5">Define your coordinates so customers can locate your store.</p>
                     </div>
                     <button
                       type="button"
                       onClick={handleUseCurrentLocation}
-                      className="rounded-xl border border-fuchsia-300/20 bg-fuchsia-300/10 px-3 py-2 text-xs font-semibold text-fuchsia-100 hover:bg-fuchsia-300/20"
+                      className="rounded-xl border border-[#a46312]/20 bg-[#a46312]/5 px-4 py-2.5 text-xs font-bold text-[#a46312] hover:bg-[#a46312]/10 transition-all duration-300 cursor-pointer shadow-sm"
                     >
-                      Use Current Location
+                      Use Device Location
                     </button>
                   </div>
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <input
                       type="text"
                       value={locationSearch}
                       onChange={(e) => setLocationSearch(e.target.value)}
-                      className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-fuchsia-300/50 focus:ring-2 focus:ring-fuchsia-300/20"
-                      placeholder="Search business name or address"
+                      className="min-w-0 flex-1 rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-sm text-[#18211f] placeholder-[#9aa09c] outline-none transition-all focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
+                      placeholder="e.g. SM City Bacolod or business street"
                     />
                     <button
                       type="button"
                       onClick={handleLocationSearch}
-                      className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200"
+                      className="rounded-xl bg-[#a46312] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#86510d] cursor-pointer shadow-sm"
                     >
-                      Search Location
+                      Search
                     </button>
                   </div>
-                  <p className="mt-2 text-xs text-zinc-500">
-                    Example: "Mercury Drug Bacolod" or "SM City Bacolod, Bacolod City".
+                  <p className="text-[10px] text-[#66736f]">
+                    Tip: Enter specific landmarks or street details for more precise automatic coordinates.
                   </p>
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-zinc-400 mb-1">Latitude</label>
+                      <label className="block text-[11px] font-bold text-[#66736f] uppercase tracking-wider mb-1.5">Latitude</label>
                       <input
                         type="text"
                         value={locationLat}
                         onChange={(e) => setLocationLat(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-fuchsia-300/50 focus:ring-2 focus:ring-fuchsia-300/20"
-                        placeholder="10.266700"
+                        className="w-full rounded-xl border border-[#d9d4c6] bg-white px-3 py-2.5 text-sm text-[#18211f] placeholder-[#9aa09c] outline-none transition-all focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
+                        placeholder="10.676500"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-zinc-400 mb-1">Longitude</label>
+                      <label className="block text-[11px] font-bold text-[#66736f] uppercase tracking-wider mb-1.5">Longitude</label>
                       <input
                         type="text"
                         value={locationLng}
                         onChange={(e) => setLocationLng(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-fuchsia-300/50 focus:ring-2 focus:ring-fuchsia-300/20"
-                        placeholder="122.850000"
+                        className="w-full rounded-xl border border-[#d9d4c6] bg-white px-3 py-2.5 text-sm text-[#18211f] placeholder-[#9aa09c] outline-none transition-all focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
+                        placeholder="122.950900"
                         required
                       />
                     </div>
                   </div>
-                  <div className="mt-4">
-                    <div className="h-64 w-full overflow-hidden rounded-2xl border border-white/10 bg-zinc-900">
+
+                  <div>
+                    <div className="h-64 w-full overflow-hidden rounded-xl border border-[#e5e2d8] bg-[#faf9f5] shadow-inner">
                       <iframe
                         key={googleMapSrc}
                         title="Business location Google Maps preview"
@@ -777,72 +774,71 @@ export default function MerchantRegistrationPage() {
                         loading="lazy"
                       />
                     </div>
-                    <div className="mt-2 flex flex-col gap-2 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
-                      <p>Google Maps preview. Search here, then confirm or edit the saved coordinates.</p>
+                    <div className="mt-2.5 flex flex-col gap-2 text-[11px] text-[#66736f] sm:flex-row sm:items-center sm:justify-between">
+                      <p>Visual map center represents search query or coordinates above.</p>
                       <a
                         href={googleMapUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="font-semibold text-fuchsia-200 hover:text-white"
+                        className="font-bold text-[#a46312] hover:underline"
                       >
-                        Open in Google Maps
+                        Open Google Maps
                       </a>
                     </div>
-                    <div className="mt-3 rounded-2xl border border-white/10 bg-black/30 p-3">
-                      <label className="block text-xs font-medium text-zinc-300">
-                        Paste coordinates or Google Maps link
-                      </label>
-                      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                        <input
-                          type="text"
-                          value={coordinateInput}
-                          onChange={(e) => setCoordinateInput(e.target.value)}
-                          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-zinc-500 outline-none focus:border-fuchsia-300/50 focus:ring-2 focus:ring-fuchsia-300/20"
-                          placeholder="10.170843, 122.979512 or Google Maps link"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleUsePastedCoordinates}
-                          className="rounded-xl border border-white/10 bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-zinc-200"
-                        >
-                          Use Coordinates
-                        </button>
-                      </div>
-                      <p className="mt-2 text-xs text-zinc-500">
-                        In Google Maps, right-click the exact pin and copy the coordinates, or paste a shared Maps URL.
-                      </p>
+                  </div>
+
+                  <div className="rounded-xl border border-[#e5e2d8] bg-[#faf9f5] p-4 space-y-2 shadow-inner">
+                    <label className="block text-[11px] font-bold text-[#49534f] uppercase tracking-wider">
+                      Paste coordinates or maps link directly
+                    </label>
+                    <div className="flex flex-col gap-2.5 sm:flex-row mt-1.5">
+                      <input
+                        type="text"
+                        value={coordinateInput}
+                        onChange={(e) => setCoordinateInput(e.target.value)}
+                        className="min-w-0 flex-1 rounded-xl border border-[#d9d4c6] bg-white px-3 py-2.5 text-xs text-[#18211f] placeholder-[#9aa09c] outline-none transition-all focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
+                        placeholder="e.g. 10.6765, 122.9509 or Google Maps URL"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleUsePastedCoordinates}
+                        className="rounded-xl border border-[#d9d4c6] bg-white px-4 py-2.5 text-xs font-bold text-[#18211f] shadow-sm transition hover:border-[#a46312]/50 hover:bg-[#faf9f5] cursor-pointer"
+                      >
+                        Apply Link
+                      </button>
                     </div>
                   </div>
                   {locationStatus && (
-                    <p className="mt-2 text-xs text-zinc-300">{locationStatus}</p>
+                    <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5 font-medium">{locationStatus}</p>
                   )}
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-zinc-200 mb-2">
-                    Business Description (Optional)
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Business Description <span className="text-[#66736f] lowercase font-normal">(Optional)</span>
                   </label>
                   <textarea
                     name="description"
                     value={formData.description}
                     onChange={handleInputChange}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-zinc-950 placeholder-zinc-500"
-                    placeholder="Describe your business..."
+                    className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15 resize-none"
+                    placeholder="Briefly describe what your store sells (e.g. Local filipino dishes and desserts)..."
                   />
                 </div>
               </div>
             </div>
 
             {/* Required Documents */}
-            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
-              <h3 className="text-lg font-semibold text-white mb-4">Required Documents</h3>
-              <div className="space-y-4">
+            <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">Required Documents</h3>
+              <div className="space-y-6">
                 {/* Business Permit */}
                 <div>
-                  <label className="block text-sm font-medium text-zinc-200 mb-2">
-                    Business Permit * <span className="text-red-300">(Required)</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Business Permit <span className="text-[#b42318]">*</span>
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors cursor-pointer">
+                  <div className="border-2 border-dashed border-[#cfc9bb] rounded-xl bg-white p-6 text-center hover:border-[#a46312] hover:bg-[#a46312]/5 transition-all duration-300 cursor-pointer shadow-sm">
                     <input
                       type="file"
                       accept="image/*"
@@ -850,21 +846,23 @@ export default function MerchantRegistrationPage() {
                       className="hidden"
                       id="business-permit-upload"
                     />
-                    <label htmlFor="business-permit-upload" className="cursor-pointer">
+                    <label htmlFor="business-permit-upload" className="cursor-pointer block w-full">
                       {businessPermitPreview ? (
-                        <div>
+                        <div className="w-full">
                           <img
                             src={businessPermitPreview}
                             alt="Business permit preview"
-                            className="max-w-xs mx-auto h-40 object-cover rounded mb-2"
+                            className="max-w-xs mx-auto h-40 object-cover rounded-lg mb-3 shadow-sm border border-[#e5e2d8]"
                           />
-                          <p className="text-sm text-green-600 font-medium">✓ Business Permit Uploaded</p>
+                          <p className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-1">
+                            <CheckCircle className="w-3.5 h-3.5" /> Checked (Click to Replace)
+                          </p>
                         </div>
                       ) : (
                         <div>
-                          <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600 mb-1">Click to upload Business Permit</p>
-                          <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                          <Upload className="w-10 h-10 text-[#66736f] mx-auto mb-2" />
+                          <p className="text-xs font-bold text-[#18211f]">Click to upload Business Permit</p>
+                          <p className="text-[10px] text-[#66736f] mt-1">PNG, JPG up to 10MB</p>
                         </div>
                       )}
                     </label>
@@ -873,10 +871,10 @@ export default function MerchantRegistrationPage() {
 
                 {/* Sanitary Permit */}
                 <div>
-                  <label className="block text-sm font-medium text-zinc-200 mb-2">
-                    Sanitary Permit <span className="text-zinc-400">(Optional but recommended)</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Sanitary Permit <span className="text-[#66736f] lowercase font-normal">(Optional but recommended)</span>
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors cursor-pointer">
+                  <div className="border-2 border-dashed border-[#cfc9bb] rounded-xl bg-white p-6 text-center hover:border-[#a46312] hover:bg-[#a46312]/5 transition-all duration-300 cursor-pointer shadow-sm">
                     <input
                       type="file"
                       accept="image/*"
@@ -884,21 +882,23 @@ export default function MerchantRegistrationPage() {
                       className="hidden"
                       id="sanitary-permit-upload"
                     />
-                    <label htmlFor="sanitary-permit-upload" className="cursor-pointer">
+                    <label htmlFor="sanitary-permit-upload" className="cursor-pointer block w-full">
                       {sanitaryPermitPreview ? (
-                        <div>
+                        <div className="w-full">
                           <img
                             src={sanitaryPermitPreview}
                             alt="Sanitary permit preview"
-                            className="max-w-xs mx-auto h-40 object-cover rounded mb-2"
+                            className="max-w-xs mx-auto h-40 object-cover rounded-lg mb-3 shadow-sm border border-[#e5e2d8]"
                           />
-                          <p className="text-sm text-green-600 font-medium">✓ Sanitary Permit Uploaded</p>
+                          <p className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-1">
+                            <CheckCircle className="w-3.5 h-3.5" /> Checked (Click to Replace)
+                          </p>
                         </div>
                       ) : (
                         <div>
-                          <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600 mb-1">Click to upload Sanitary Permit</p>
-                          <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                          <Upload className="w-10 h-10 text-[#66736f] mx-auto mb-2" />
+                          <p className="text-xs font-bold text-[#18211f]">Click to upload Sanitary Permit</p>
+                          <p className="text-[10px] text-[#66736f] mt-1">PNG, JPG up to 10MB</p>
                         </div>
                       )}
                     </label>
@@ -908,12 +908,12 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Account Security */}
-            <div className="gsap-card rounded-3xl border border-white/10 bg-black/30 p-5">
-              <h3 className="text-lg font-semibold text-white mb-4">Account Security</h3>
-              <div className="grid md:grid-cols-2 gap-4">
+            <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">Account Security</h3>
+              <div className="grid md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-200 mb-2">
-                    Password <span className="text-red-300">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Password <span className="text-[#b42318]">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -921,22 +921,22 @@ export default function MerchantRegistrationPage() {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10 text-zinc-950 placeholder-zinc-500"
+                      className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 pr-12 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
                       placeholder="Minimum 6 characters"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#66736f] hover:text-[#18211f]"
                     >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-200 mb-2">
-                    Confirm Password <span className="text-red-300">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Confirm Password <span className="text-[#b42318]">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -944,16 +944,16 @@ export default function MerchantRegistrationPage() {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10 text-zinc-950 placeholder-zinc-500"
+                      className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 pr-12 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#a46312] focus:ring-2 focus:ring-[#a46312]/15"
                       placeholder="Re-enter password"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#66736f] hover:text-[#18211f]"
                     >
-                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -961,30 +961,24 @@ export default function MerchantRegistrationPage() {
             </div>
 
             {/* Terms and Conditions */}
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 bg-[#faf9f5] border border-[#e5e2d8] rounded-xl p-4 shadow-sm">
               <input
                 type="checkbox"
                 id="terms"
                 checked={agreeToTerms}
                 onChange={(e) => setAgreeToTerms(e.target.checked)}
-                className="mt-1 w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                className="mt-1 h-4 w-4 rounded border-[#d9d4c6] text-[#a46312] focus:ring-[#a46312]/30 focus:ring-offset-0 accent-[#a46312] cursor-pointer"
               />
-              <label htmlFor="terms" className="text-sm text-zinc-200">
-                I agree to the Terms of Service and Privacy Policy for Merchants. I understand that my account requires admin approval before I can start accepting orders.
+              <label htmlFor="terms" className="text-sm leading-relaxed text-[#66736f] cursor-pointer select-none">
+                I agree to the <span className="font-semibold text-[#a46312] hover:underline">Terms of Service</span> and <span className="font-semibold text-[#a46312] hover:underline">Privacy Policy</span> for Merchants. I understand that my account requires admin approval.
               </label>
             </div>
-
-            {error && (
-              <div className="rounded-2xl border border-red-300/40 bg-red-500/10 p-4 text-sm font-medium text-red-100">
-                {error}
-              </div>
-            )}
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a46312] py-4 text-sm font-bold text-white shadow-sm transition-all duration-300 hover:bg-[#86510d] hover:shadow-md disabled:bg-zinc-300 disabled:text-zinc-500 disabled:cursor-not-allowed cursor-pointer"
             >
               {isLoading ? (
                 <>

@@ -278,7 +278,7 @@ export default function MerchantsPage() {
       await update(ref(database, `merchants/${selectedMerchant.uid}`), updates);
 
       await update(ref(database, `users/${selectedMerchant.uid}`), {
-        isApproved: statusValue === 'approved',
+        isApproved: false,
       });
 
       alert(

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, X, Check, Trash2 } from 'lucide-react';
+import { Bell, X, Check, Trash2, AlertTriangle, Car, CreditCard, MapPin, CheckCircle2 } from 'lucide-react';
 import { database } from '@/lib/firebase';
 import { ref, onValue, off, update, remove, get } from 'firebase/database';
 
@@ -223,17 +223,17 @@ export default function NotificationBell() {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'tripRequest':
-        return '🚗';
+        return <Car className="h-4 w-4" />;
       case 'tripAccepted':
-        return '✅';
+        return <CheckCircle2 className="h-4 w-4" />;
       case 'tripCancelled':
-        return '❌';
+        return <X className="h-4 w-4" />;
       case 'tripCompleted':
-        return '🏁';
+        return <MapPin className="h-4 w-4" />;
       case 'paymentVerified':
-        return '💳';
+        return <CreditCard className="h-4 w-4" />;
       default:
-        return '🔔';
+        return <AlertTriangle className="h-4 w-4" />;
     }
   };
 
@@ -242,11 +242,12 @@ export default function NotificationBell() {
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+        className="relative rounded-md border border-[#dfe5e1] bg-white p-2 text-[#49534f] shadow-sm transition hover:bg-[#edf0eb] hover:text-[#18211f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f6f68]/25"
+        aria-label="Open notifications"
       >
-        <Bell className="w-6 h-6" />
+        <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#b42318] px-1 text-[10px] font-semibold text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -254,72 +255,78 @@ export default function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[500px] overflow-hidden">
+        <div className="absolute right-0 z-50 mt-2 max-h-[500px] w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[#dfe5e1] bg-white shadow-[0_24px_60px_rgba(24,33,31,0.16)]">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-            <h3 className="font-semibold text-gray-800">Notifications</h3>
-            <div className="flex items-center space-x-2">
+          <div className="flex items-center justify-between border-b border-[#e5e2d8] bg-[#fbfcf9] px-4 py-3">
+            <div>
+              <h3 className="font-semibold text-[#18211f]">Notifications</h3>
+              <p className="mt-0.5 text-xs text-[#7a837f]">{unreadCount} unread</p>
+            </div>
+            <div className="flex items-center gap-2">
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  className="rounded-md px-2 py-1 text-xs font-bold text-[#1f6f68] transition hover:bg-[#dfe9e6]"
                 >
                   Mark all read
                 </button>
               )}
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="rounded-md p-1 text-[#7a837f] transition hover:bg-[#edf0eb] hover:text-[#18211f]"
+                aria-label="Close notifications"
               >
-                <X className="w-5 h-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
 
           {/* Notifications List */}
-          <div className="overflow-y-auto max-h-[400px]">
+          <div className="max-h-[400px] overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <Bell className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="font-medium">No notifications</p>
-                <p className="text-sm">You&apos;ll see notifications here</p>
+              <div className="p-8 text-center text-[#7a837f]">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#f2efe7]">
+                  <Bell className="h-5 w-5 text-[#89918d]" />
+                </div>
+                <p className="font-medium text-[#18211f]">No notifications</p>
+                <p className="text-sm">Updates will appear here.</p>
               </div>
             ) : (
               notifications.map((notification) => (
                 <div
                   key={notification.firebaseKey || notification.notificationId}
                   className={`
-                    px-4 py-3 border-b hover:bg-gray-50 transition-colors cursor-pointer
-                    ${!notification.isRead ? 'bg-blue-50' : ''}
+                    cursor-pointer border-b border-[#f0ede5] px-4 py-3 transition-colors hover:bg-[#fbfcf9]
+                    ${!notification.isRead ? 'bg-[#eef7f4]' : 'bg-white'}
                   `}
                   onClick={() => handleNotificationClick(notification)}
                 >
-                  <div className="flex items-start space-x-3">
-                    <span className="text-2xl">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-[#1f6f68] ring-1 ring-[#dfe5e1]">
                       {getNotificationIcon(notification.type)}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notification.isRead ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                      <p className={`text-sm ${!notification.isRead ? 'font-semibold' : 'font-medium'} text-[#18211f]`}>
                         {notification.title}
                       </p>
-                      <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
+                      <p className="mt-0.5 line-clamp-2 text-sm text-[#66736f]">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="mt-1 text-xs text-[#89918d]">
                         {formatTime(notification.createdAt)}
                       </p>
                     </div>
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center gap-1">
                       {!notification.isRead && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             markAsRead(notification);
                           }}
-                          className="p-1 text-gray-400 hover:text-green-600 rounded"
+                          className="rounded p-1 text-[#89918d] transition hover:bg-emerald-50 hover:text-emerald-700"
                           title="Mark as read"
                         >
-                          <Check className="w-4 h-4" />
+                          <Check className="h-4 w-4" />
                         </button>
                       )}
                       <button
@@ -327,10 +334,10 @@ export default function NotificationBell() {
                           e.stopPropagation();
                           deleteNotification(notification);
                         }}
-                        className="p-1 text-gray-400 hover:text-red-600 rounded"
+                        className="rounded p-1 text-[#89918d] transition hover:bg-red-50 hover:text-red-700"
                         title="Delete"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
