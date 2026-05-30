@@ -2,11 +2,29 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  CakeSlice,
+  CheckCircle,
+  Coffee,
+  Croissant,
+  CupSoda,
+  Eye,
+  EyeOff,
+  Pill,
+  Sandwich,
+  ShoppingBag,
+  Store,
+  Upload,
+  Utensils,
+} from 'lucide-react';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { getDatabase, ref, set } from 'firebase/database';
+import { getAuth, createUserWithEmailAndPassword, deleteUser, sendEmailVerification } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
+import { getDatabase, ref, update } from 'firebase/database';
 import { useRegisterScrollMotion } from '@/components/RegisterMotion';
+import { createAdminNotification } from '@/lib/adminNotifications';
 
 // Initialize Firebase
 if (!getApps().length) {
@@ -27,6 +45,14 @@ const database = getDatabase();
 // Cloudinary configuration
 const CLOUDINARY_CLOUD_NAME = 'dqjw2azfx';
 const CLOUDINARY_UPLOAD_PRESET = 'ml_default';
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+
+const validateImageFile = (file: File | null, label: string, required = false) => {
+  if (!file) return required ? `${label} is required` : '';
+  if (!file.type.startsWith('image/')) return `${label} must be an image file`;
+  if (file.size > MAX_UPLOAD_SIZE_BYTES) return `${label} must be 10MB or smaller`;
+  return '';
+};
 
 const merchantCategories = [
   { value: 'restaurant', label: 'Restaurant', icon: '🍽️' },
@@ -63,6 +89,25 @@ const merchantCategoriesByType = {
     { value: 'other', label: 'Medical Essentials', icon: '🏥' },
   ],
 } as const;
+
+const businessTypeIcons = {
+  food: Utensils,
+  vape: Store,
+  medicine: Pill,
+};
+
+const categoryIcons = {
+  restaurant: Utensils,
+  cafe: Coffee,
+  fastFood: Sandwich,
+  bakery: Croissant,
+  desserts: CakeSlice,
+  drinks: CupSoda,
+  grocery: ShoppingBag,
+  vapeStore: Store,
+  pharmacy: Pill,
+  other: Store,
+};
 
 export default function MerchantRegistrationPage() {
   const router = useRouter();
@@ -312,8 +357,15 @@ export default function MerchantRegistrationPage() {
     e.preventDefault();
     setError('');
 
+    const businessName = formData.businessName.trim();
+    const ownerName = formData.ownerName.trim();
+    const email = formData.email.trim().toLowerCase();
+    const phone = formData.phone.trim();
+    const address = formData.address.trim();
+    const description = formData.description.trim();
+
     // Validation
-    if (!formData.businessName || !formData.ownerName || !formData.email || !formData.phone || !formData.address || !formData.password) {
+    if (!businessName || !ownerName || !email || !phone || !address || !formData.password) {
       showFormError('Please fill in all required fields');
       return;
     }
@@ -328,7 +380,7 @@ export default function MerchantRegistrationPage() {
       return;
     }
 
-    if (!formData.phone.match(/^09\d{9}$/)) {
+    if (!phone.match(/^09\d{9}$/)) {
       showFormError('Phone number must be in format 09XX-XXX-XXXX');
       return;
     }
@@ -340,8 +392,27 @@ export default function MerchantRegistrationPage() {
       return;
     }
 
-    if (!businessPermitFile) {
-      showFormError('Please upload your Business Permit');
+    const selectedBusinessPermitFile = businessPermitFile;
+    if (!selectedBusinessPermitFile) {
+      showFormError('Business permit image is required');
+      return;
+    }
+
+    const businessPermitFileError = validateImageFile(selectedBusinessPermitFile, 'Business permit image', true);
+    if (businessPermitFileError) {
+      showFormError(businessPermitFileError);
+      return;
+    }
+
+    const sanitaryPermitFileError = validateImageFile(sanitaryPermitFile, 'Sanitary permit image');
+    if (sanitaryPermitFileError) {
+      showFormError(sanitaryPermitFileError);
+      return;
+    }
+
+    const logoFileError = validateImageFile(logoFile, 'Business logo');
+    if (logoFileError) {
+      showFormError(logoFileError);
       return;
     }
 
@@ -351,75 +422,72 @@ export default function MerchantRegistrationPage() {
     }
 
     setIsLoading(true);
+    let createdUser: FirebaseUser | null = null;
+    let registrationSaved = false;
 
     try {
       // Create user account
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, formData.password);
       const user = userCredential.user;
+      createdUser = user;
 
       // Upload documents to Cloudinary
-      let businessPermitUrl = 'pending_submission';
+      const businessPermitUrl = await uploadToCloudinary(
+        selectedBusinessPermitFile,
+        `pasakay/merchants/${user.uid}`
+      );
       let sanitaryPermitUrl: string | null = null;
       let logoUrl: string | null = null;
 
-      if (businessPermitFile) {
-        try {
-          console.log('Uploading business permit to Cloudinary...');
-          businessPermitUrl = await uploadToCloudinary(businessPermitFile, `pasakay/merchants/${user.uid}`);
-          console.log('Business permit uploaded:', businessPermitUrl);
-        } catch (uploadError) {
-          console.error('Business permit upload error:', uploadError);
-        }
-      }
+      console.log('Business permit uploaded:', businessPermitUrl);
 
       if (sanitaryPermitFile) {
-        try {
-          console.log('Uploading sanitary permit to Cloudinary...');
-          sanitaryPermitUrl = await uploadToCloudinary(sanitaryPermitFile, `pasakay/merchants/${user.uid}`);
-          console.log('Sanitary permit uploaded:', sanitaryPermitUrl);
-        } catch (uploadError) {
-          console.error('Sanitary permit upload error:', uploadError);
-        }
+        console.log('Uploading sanitary permit to Cloudinary...');
+        sanitaryPermitUrl = await uploadToCloudinary(sanitaryPermitFile, `pasakay/merchants/${user.uid}`);
+        console.log('Sanitary permit uploaded:', sanitaryPermitUrl);
       }
 
       if (logoFile) {
-        try {
-          console.log('Uploading logo to Cloudinary...');
-          logoUrl = await uploadToCloudinary(logoFile, `pasakay/merchants/${user.uid}`);
-          console.log('Logo uploaded:', logoUrl);
-        } catch (uploadError) {
-          console.error('Logo upload error:', uploadError);
-        }
+        console.log('Uploading logo to Cloudinary...');
+        logoUrl = await uploadToCloudinary(logoFile, `pasakay/merchants/${user.uid}`);
+        console.log('Logo uploaded:', logoUrl);
       }
+
+      const now = new Date().toISOString();
 
       // Create user data
       const userData = {
         uid: user.uid,
-        email: formData.email,
-        name: formData.ownerName,
-        phone: formData.phone,
+        email,
+        name: ownerName,
+        phone,
         userType: 'merchant',
         role: 'merchant',
         isActive: true,
-        createdAt: new Date().toISOString(),
+        isApproved: false,
+        verificationStatus: 'pending',
+        createdAt: now,
+        updatedAt: now,
       };
 
       // Create merchant data
       const merchantData = {
         uid: user.uid,
-        businessName: formData.businessName,
-        ownerName: formData.ownerName,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
+        businessName,
+        ownerName,
+        email,
+        phone,
+        address,
         latitude: parsedLat,
         longitude: parsedLng,
         businessType: formData.businessType,
         category: formData.category,
         logoUrl: logoUrl || null,
-        description: formData.description || null,
+        description: description || null,
         status: 'pending',
         isOpen: false,
+        isActive: true,
+        isApproved: false,
         rating: 0,
         totalOrders: 0,
         totalReviews: 0,
@@ -427,30 +495,70 @@ export default function MerchantRegistrationPage() {
         estimatedPrepTime: 15,
         businessPermitUrl: businessPermitUrl,
         sanitaryPermitUrl: sanitaryPermitUrl || null,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       };
 
       // Save to database
-      await set(ref(database, `users/${user.uid}`), userData);
-      await set(ref(database, `merchants/${user.uid}`), merchantData);
+      await update(ref(database), {
+        [`users/${user.uid}`]: userData,
+        [`merchants/${user.uid}`]: merchantData,
+      });
+      registrationSaved = true;
+
+      try {
+        await createAdminNotification({
+          title: 'New Merchant Registration',
+          message: `${businessName} has registered as a merchant and needs review.`,
+          type: 'merchantRegistration',
+          relatedId: user.uid,
+        });
+      } catch (notificationError) {
+        console.error('Admin notification error:', notificationError);
+      }
 
       // Send email verification
-      await sendEmailVerification(user);
+      try {
+        await sendEmailVerification(user);
+      } catch (emailError) {
+        console.error('Email verification error:', emailError);
+      }
 
       // Sign out the user
-      await auth.signOut();
+      try {
+        await auth.signOut();
+      } catch (signOutError) {
+        console.error('Sign out error after registration:', signOutError);
+      }
 
       setSuccess(true);
     } catch (err: any) {
       console.error('Registration error:', err);
+      let cleanupWarning = '';
+      if (createdUser && !registrationSaved) {
+        try {
+          await deleteUser(createdUser);
+        } catch (cleanupError) {
+          console.error('Failed to clean up incomplete merchant account:', cleanupError);
+          cleanupWarning = ' Your login account may have been created; contact admin if retry says the email is already registered.';
+        }
+        try {
+          await auth.signOut();
+        } catch (signOutError) {
+          console.error('Sign out error after failed registration:', signOutError);
+        }
+      }
+
       if (err.code === 'auth/email-already-in-use') {
         showFormError('This email is already registered');
       } else if (err.code === 'auth/invalid-email') {
         showFormError('Invalid email address');
       } else if (err.code === 'auth/weak-password') {
         showFormError('Password is too weak');
+      } else if (err.code === 'PERMISSION_DENIED') {
+        showFormError(`Database permission denied. Please contact admin.${cleanupWarning}`);
       } else {
-        showFormError(err.message || 'Registration failed. Please try again.');
+        showFormError(`${err.message || 'Registration failed. Please try again.'}${cleanupWarning}`);
       }
     } finally {
       setIsLoading(false);
@@ -538,29 +646,37 @@ export default function MerchantRegistrationPage() {
                 Business Type <span className="text-[#b42318]">*</span>
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {businessTypeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setFormData(prev => ({
-                      ...prev,
-                      businessType: option.value,
-                      category: merchantCategoriesByType[option.value][0].value,
-                    }))}
-                    className={`p-5 rounded-xl border-2 transition-all text-left cursor-pointer flex flex-col justify-between min-h-28 shadow-sm ${
-                      formData.businessType === option.value
-                        ? 'border-[#a46312] bg-[#a46312]/5 ring-2 ring-[#a46312]/20'
-                        : 'border-[#d9d4c6] bg-white hover:border-[#a46312]/50'
-                    }`}
-                  >
-                    <div className="text-3xl">{option.icon}</div>
-                    <div className={`text-sm font-bold mt-3 ${
-                      formData.businessType === option.value ? 'text-[#a46312]' : 'text-[#18211f]'
-                    }`}>
-                      {option.label}
-                    </div>
-                  </button>
-                ))}
+                {businessTypeOptions.map((option) => {
+                  const OptionIcon = businessTypeIcons[option.value] || Store;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({
+                        ...prev,
+                        businessType: option.value,
+                        category: merchantCategoriesByType[option.value][0].value,
+                      }))}
+                      className={`p-5 rounded-xl border-2 transition-all text-left cursor-pointer flex flex-col justify-between min-h-28 shadow-sm ${
+                        formData.businessType === option.value
+                          ? 'border-[#a46312] bg-[#a46312]/5 ring-2 ring-[#a46312]/20'
+                          : 'border-[#d9d4c6] bg-white hover:border-[#a46312]/50'
+                      }`}
+                    >
+                      <OptionIcon
+                        className={`h-8 w-8 ${
+                          formData.businessType === option.value ? 'text-[#a46312]' : 'text-[#66736f]'
+                        }`}
+                      />
+                      <div className={`text-sm font-bold mt-3 ${
+                        formData.businessType === option.value ? 'text-[#a46312]' : 'text-[#18211f]'
+                      }`}>
+                        {option.label}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -603,25 +719,33 @@ export default function MerchantRegistrationPage() {
                 Business Category <span className="text-[#b42318]">*</span>
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {categoryOptions.map((cat) => (
-                  <button
-                    key={cat.value}
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, category: cat.value }))}
-                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center text-center cursor-pointer shadow-sm ${
-                      formData.category === cat.value
-                        ? 'border-[#a46312] bg-[#a46312]/5 ring-2 ring-[#a46312]/20'
-                        : 'border-[#d9d4c6] bg-white hover:border-[#a46312]/50'
-                    }`}
-                  >
-                    <div className="text-3xl mb-1">{cat.icon}</div>
-                    <div className={`text-xs font-bold mt-2 ${
-                      formData.category === cat.value ? 'text-[#a46312]' : 'text-[#18211f]'
-                    }`}>
-                      {cat.label}
-                    </div>
-                  </button>
-                ))}
+                {categoryOptions.map((cat) => {
+                  const CategoryIcon = categoryIcons[cat.value] || Store;
+
+                  return (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, category: cat.value }))}
+                      className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center text-center cursor-pointer shadow-sm ${
+                        formData.category === cat.value
+                          ? 'border-[#a46312] bg-[#a46312]/5 ring-2 ring-[#a46312]/20'
+                          : 'border-[#d9d4c6] bg-white hover:border-[#a46312]/50'
+                      }`}
+                    >
+                      <CategoryIcon
+                        className={`mb-1 h-8 w-8 ${
+                          formData.category === cat.value ? 'text-[#a46312]' : 'text-[#66736f]'
+                        }`}
+                      />
+                      <div className={`text-xs font-bold mt-2 ${
+                        formData.category === cat.value ? 'text-[#a46312]' : 'text-[#18211f]'
+                      }`}>
+                        {cat.label}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

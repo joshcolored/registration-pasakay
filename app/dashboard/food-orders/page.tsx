@@ -215,10 +215,20 @@ export default function FoodOrdersPage() {
   }, [orders, dateRange]);
 
   const delivered = filtered.filter((o) => o.status === 'delivered');
+
+  const foodCommission = (order: FoodOrder) =>
+    order.platformCommission > 0 ? order.platformCommission : order.subtotal * merchantCommissionRate;
+
+  const driverPayout = (order: FoodOrder) =>
+    order.driverPayout > 0 ? order.driverPayout : order.deliveryFee * (1 - driverCommissionRate);
+
+  const deliveryCommission = (order: FoodOrder) =>
+    Math.max(order.deliveryFee - driverPayout(order), 0);
+
   const deliveredCount = delivered.length;
   const deliveryFeeTotal = delivered.reduce((s, o) => s + o.deliveryFee, 0);
-  const platformTotal = delivered.reduce((s, o) => s + o.deliveryFee * driverCommissionRate, 0);
-  const payoutTotal = delivered.reduce((s, o) => s + o.deliveryFee * (1 - driverCommissionRate), 0);
+  const platformTotal = delivered.reduce((s, o) => s + foodCommission(o), 0);
+  const payoutTotal = delivered.reduce((s, o) => s + driverPayout(o), 0);
 
   const formatCurrency = (n: number) =>
     `PHP ${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -255,9 +265,6 @@ export default function FoodOrdersPage() {
     const addonsTotal = (item.addons || []).reduce((sum, addon) => sum + addon.price * item.quantity, 0);
     return base + addonsTotal;
   };
-
-  const deliveryCommission = (order: FoodOrder) => order.deliveryFee * driverCommissionRate;
-  const driverPayout = (order: FoodOrder) => order.deliveryFee * (1 - driverCommissionRate);
 
   const merchantSummaries = useMemo(() => {
     const map = new Map<
@@ -374,7 +381,7 @@ export default function FoodOrdersPage() {
           />
           <SummaryCard
             icon={<Building2 className="w-5 h-5" />}
-            label="Platform Commission"
+            label="Food Commission"
             value={formatCurrency(platformTotal)}
             color="bg-amber-100 text-amber-800"
           />
@@ -477,7 +484,8 @@ export default function FoodOrdersPage() {
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Customer</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Driver</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Delivery Fee</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Commission</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Delivery Commission</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Food Commission</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Payout</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Total</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
@@ -487,13 +495,13 @@ export default function FoodOrdersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-8 text-gray-500 text-sm">
+                  <td colSpan={11} className="text-center py-8 text-gray-500 text-sm">
                     Loading...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-8 text-gray-500 text-sm">
+                  <td colSpan={11} className="text-center py-8 text-gray-500 text-sm">
                     No orders found
                   </td>
                 </tr>
@@ -519,6 +527,7 @@ export default function FoodOrdersPage() {
                       </td>
                       <td className="py-3 px-4 text-gray-800">{formatCurrency(order.deliveryFee)}</td>
                       <td className="py-3 px-4 text-gray-800">{formatCurrency(deliveryCommission(order))}</td>
+                      <td className="py-3 px-4 text-gray-800">{formatCurrency(foodCommission(order))}</td>
                       <td className="py-3 px-4 text-gray-800">{formatCurrency(driverPayout(order))}</td>
                       <td className="py-3 px-4 text-gray-800">{formatCurrency(order.totalAmount)}</td>
                       <td className="py-3 px-4 text-gray-600">{formatDate(order.createdAt)}</td>

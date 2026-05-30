@@ -4,9 +4,11 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { getDatabase, ref, set } from 'firebase/database';
+import { getAuth, createUserWithEmailAndPassword, deleteUser, sendEmailVerification } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
+import { getDatabase, ref, update } from 'firebase/database';
 import { useRegisterScrollMotion } from '@/components/RegisterMotion';
+import { createAdminNotification } from '@/lib/adminNotifications';
 
 // Initialize Firebase (reuse from env config)
 if (!getApps().length) {
@@ -27,6 +29,14 @@ const database = getDatabase();
 // Cloudinary configuration
 const CLOUDINARY_CLOUD_NAME = 'dqjw2azfx';
 const CLOUDINARY_UPLOAD_PRESET = 'ml_default';
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+
+const validateImageFile = (file: File | null, label: string) => {
+  if (!file) return `${label} is required`;
+  if (!file.type.startsWith('image/')) return `${label} must be an image file`;
+  if (file.size > MAX_UPLOAD_SIZE_BYTES) return `${label} must be 10MB or smaller`;
+  return '';
+};
 
 export default function DriverRegistrationPage() {
   const router = useRouter();
@@ -107,8 +117,15 @@ export default function DriverRegistrationPage() {
     e.preventDefault();
     setError('');
 
+    const name = formData.name.trim();
+    const email = formData.email.trim().toLowerCase();
+    const phone = formData.phone.trim();
+    const vehicleNumber = formData.vehicleNumber.trim();
+    const vehicleModel = formData.vehicleModel.trim();
+    const vehicleLicense = formData.vehicleLicense.trim();
+
     // Validation
-    if (!formData.name || !formData.email || !formData.phone || !formData.password) {
+    if (!name || !email || !phone || !formData.password) {
       setError('Please fill in all required fields');
       return;
     }
@@ -123,18 +140,37 @@ export default function DriverRegistrationPage() {
       return;
     }
 
-    if (!formData.phone.match(/^09\d{9}$/)) {
+    if (!phone.match(/^09\d{9}$/)) {
       setError('Phone number must be in format 09XX-XXX-XXXX');
       return;
     }
 
-    if (!driverLicenseFile) {
-      setError('Please upload your driver\'s license');
+    if (!vehicleModel || !vehicleLicense || !vehicleNumber) {
+      setError('Please complete your vehicle information');
       return;
     }
 
-    if (!orCrFile) {
-      setError('Please upload your OR/CR document');
+    const selectedDriverLicenseFile = driverLicenseFile;
+    if (!selectedDriverLicenseFile) {
+      setError('Driver\'s license image is required');
+      return;
+    }
+
+    const licenseFileError = validateImageFile(selectedDriverLicenseFile, 'Driver\'s license image');
+    if (licenseFileError) {
+      setError(licenseFileError);
+      return;
+    }
+
+    const selectedOrCrFile = orCrFile;
+    if (!selectedOrCrFile) {
+      setError('OR/CR document image is required');
+      return;
+    }
+
+    const orCrFileError = validateImageFile(selectedOrCrFile, 'OR/CR document image');
+    if (orCrFileError) {
+      setError(orCrFileError);
       return;
     }
 
@@ -144,67 +180,94 @@ export default function DriverRegistrationPage() {
     }
 
     setIsLoading(true);
+    let createdUser: FirebaseUser | null = null;
+    let registrationSaved = false;
 
     try {
       // Step 1: Create user account
       console.log('Creating user account...');
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, formData.password);
       const user = userCredential.user;
+      createdUser = user;
       console.log('User created:', user.uid);
 
       // Step 2: Upload documents to Cloudinary
-      let licenseUrl = 'pending_submission';
-      let orCrUrl = 'pending_submission';
+      console.log('Uploading driver license to Cloudinary...');
+      const licenseUrl = await uploadToCloudinary(selectedDriverLicenseFile, `pasakay/drivers/${user.uid}`);
+      console.log('License uploaded:', licenseUrl);
 
-      if (driverLicenseFile) {
-        try {
-          console.log('Uploading driver license to Cloudinary...');
-          licenseUrl = await uploadToCloudinary(driverLicenseFile, `pasakay/drivers/${user.uid}`);
-          console.log('License uploaded:', licenseUrl);
-        } catch (uploadError) {
-          console.error('License upload error:', uploadError);
-        }
-      }
+      console.log('Uploading OR/CR to Cloudinary...');
+      const orCrUrl = await uploadToCloudinary(selectedOrCrFile, `pasakay/drivers/${user.uid}`);
+      console.log('OR/CR uploaded:', orCrUrl);
 
-      if (orCrFile) {
-        try {
-          console.log('Uploading OR/CR to Cloudinary...');
-          orCrUrl = await uploadToCloudinary(orCrFile, `pasakay/drivers/${user.uid}`);
-          console.log('OR/CR uploaded:', orCrUrl);
-        } catch (uploadError) {
-          console.error('OR/CR upload error:', uploadError);
-        }
-      }
+      const now = new Date().toISOString();
 
       // Step 3: Create driver data
       const driverData = {
         uid: user.uid,
-        email: formData.email,
-        name: formData.name,
-        phone: formData.phone,
+        email,
+        name,
+        phone,
         userType: 'driver',
         role: 'driver',
         vehicleType: formData.vehicleType,
-        vehicleNumber: formData.vehicleNumber,
-        vehicleModel: formData.vehicleModel,
-        vehicleLicense: formData.vehicleLicense,
+        vehicleNumber,
+        vehicleModel,
+        vehicleLicense,
+        driversLicenseUrl: licenseUrl,
         driverLicenseUrl: licenseUrl,
         orCrUrl: orCrUrl,
         isActive: true,
         isApproved: false,
         isOnline: false,
+        status: 'pending',
         verificationStatus: 'pending',
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
+        rating: 0,
+        ratingCount: 0,
+        totalTrips: 0,
+        completedTrips: 0,
+        totalEarnings: 0,
+        hasActiveSubscription: false,
+        subscriptionStatus: 'none',
+      };
+
+      const userData = {
+        uid: user.uid,
+        email,
+        name,
+        phone,
+        userType: 'driver',
+        role: 'driver',
+        isActive: true,
+        isApproved: false,
+        verificationStatus: 'pending',
+        createdAt: now,
+        updatedAt: now,
         rating: 0,
         totalTrips: 0,
-        totalEarnings: 0,
       };
 
       // Step 4: Save to database
       console.log('Saving to database...');
-      await set(ref(database, `users/${user.uid}`), driverData);
-      await set(ref(database, `drivers/${user.uid}`), driverData);
+      await update(ref(database), {
+        [`users/${user.uid}`]: userData,
+        [`drivers/${user.uid}`]: driverData,
+      });
+      registrationSaved = true;
       console.log('Database saved successfully');
+
+      try {
+        await createAdminNotification({
+          title: 'New Driver Registration',
+          message: `${name} has registered as a driver and needs verification.`,
+          type: 'driverRegistration',
+          relatedId: user.uid,
+        });
+      } catch (notificationError) {
+        console.error('Admin notification error:', notificationError);
+      }
 
       // Step 5: Send email verification
       try {
@@ -216,11 +279,30 @@ export default function DriverRegistrationPage() {
       }
 
       // Sign out the user (they shouldn't be logged in yet)
-      await auth.signOut();
+      try {
+        await auth.signOut();
+      } catch (signOutError) {
+        console.error('Sign out error after registration:', signOutError);
+      }
 
       setSuccess(true);
     } catch (err: any) {
       console.error('Registration error:', err);
+      let cleanupWarning = '';
+      if (createdUser && !registrationSaved) {
+        try {
+          await deleteUser(createdUser);
+        } catch (cleanupError) {
+          console.error('Failed to clean up incomplete driver account:', cleanupError);
+          cleanupWarning = ' Your login account may have been created; contact admin if retry says the email is already registered.';
+        }
+        try {
+          await auth.signOut();
+        } catch (signOutError) {
+          console.error('Sign out error after failed registration:', signOutError);
+        }
+      }
+
       if (err.code === 'auth/email-already-in-use') {
         setError('This email is already registered');
       } else if (err.code === 'auth/invalid-email') {
@@ -228,11 +310,11 @@ export default function DriverRegistrationPage() {
       } else if (err.code === 'auth/weak-password') {
         setError('Password is too weak');
       } else if (err.code === 'storage/unauthorized') {
-        setError('Storage permission denied. Please contact admin.');
+        setError(`Storage permission denied. Please contact admin.${cleanupWarning}`);
       } else if (err.code === 'PERMISSION_DENIED') {
-        setError('Database permission denied. Please contact admin.');
+        setError(`Database permission denied. Please contact admin.${cleanupWarning}`);
       } else {
-        setError(err.message || 'Registration failed. Please try again.');
+        setError(`${err.message || 'Registration failed. Please try again.'}${cleanupWarning}`);
       }
     } finally {
       setIsLoading(false);

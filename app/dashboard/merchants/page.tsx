@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ref, onValue, update, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
+import { createAdminNotification } from '@/lib/adminNotifications';
 import { 
   Store, Search, CheckCircle, XCircle, Clock, Phone, Mail, 
   MapPin, Calendar, FileText, Eye, User, Star, ShoppingBag,
@@ -231,6 +232,8 @@ export default function MerchantsPage() {
     try {
       await update(ref(database, `merchants/${merchant.uid}`), {
         status: 'approved',
+        isApproved: true,
+        isActive: true,
         approvedAt: new Date().toISOString(),
         approvedBy: 'admin',
         rejectionReason: null,
@@ -240,6 +243,14 @@ export default function MerchantsPage() {
       
       await update(ref(database, `users/${merchant.uid}`), {
         isApproved: true,
+        verificationStatus: 'approved',
+      });
+
+      await createAdminNotification({
+        title: 'Merchant Approved',
+        message: `${merchant.businessName} was approved by admin.`,
+        type: 'merchantVerified',
+        relatedId: merchant.uid,
       });
       
       alert(`${merchant.businessName} has been approved!`);
@@ -263,6 +274,7 @@ export default function MerchantsPage() {
       const statusValue = isSuspending ? 'suspended' : 'rejected';
       const updates: Record<string, any> = {
         status: statusValue,
+        isApproved: false,
         hasActiveSubscription: false,
         isOpen: false,
       };
@@ -279,6 +291,14 @@ export default function MerchantsPage() {
 
       await update(ref(database, `users/${selectedMerchant.uid}`), {
         isApproved: false,
+        verificationStatus: statusValue,
+      });
+
+      await createAdminNotification({
+        title: isSuspending ? 'Merchant Suspended' : 'Merchant Rejected',
+        message: `${selectedMerchant.businessName} was ${isSuspending ? 'suspended' : 'rejected'} by admin.`,
+        type: isSuspending ? 'merchantSuspended' : 'merchantRejected',
+        relatedId: selectedMerchant.uid,
       });
 
       alert(

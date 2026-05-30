@@ -12,6 +12,31 @@ interface DriverWithUser extends Driver {
   user?: User;
 }
 
+const isFreeTrialValue = (value: unknown) => {
+  const normalized = value?.toString().trim().toLowerCase().replace(/[\s_-]/g, '');
+  return normalized === 'freetrial';
+};
+
+const isLegacyFreeTrialDriver = (driver: any) =>
+  isFreeTrialValue(driver.subscriptionStatus) ||
+  isFreeTrialValue(driver.subscriptionType) ||
+  isFreeTrialValue(driver.subscriptionPlan);
+
+const normalizeSubscriptionEndDate = (endDate: unknown, expiry: unknown) => {
+  if (typeof endDate === 'number') return endDate;
+  if (typeof endDate === 'string' && endDate.trim()) {
+    const parsed = Number(endDate);
+    if (!Number.isNaN(parsed)) return parsed;
+    const parsedDate = new Date(endDate).getTime();
+    return Number.isNaN(parsedDate) ? null : parsedDate;
+  }
+  if (typeof expiry === 'string' && expiry.trim()) {
+    const parsedDate = new Date(expiry).getTime();
+    return Number.isNaN(parsedDate) ? null : parsedDate;
+  }
+  return null;
+};
+
 export default function DriversPage() {
   const router = useRouter();
   const [drivers, setDrivers] = useState<DriverWithUser[]>([]);
@@ -68,6 +93,11 @@ export default function DriversPage() {
     const originalExpiry = (driver as any).originalSubscriptionExpiry;
     const originalStatus = (driver as any).originalSubscriptionStatus;
     const originalType = (driver as any).originalSubscriptionType;
+
+    if (isFreeTrialValue(originalStatus) || isFreeTrialValue(originalType)) {
+      alert('Cannot restore an old trial subscription. The driver needs an active paid subscription.');
+      return;
+    }
     
     if (!originalEndDate) {
       alert('Cannot restore: Original subscription data not found.');
@@ -168,11 +198,32 @@ export default function DriversPage() {
           const driversData = driversSnapshot.val();
           const usersData = usersSnapshot.exists() ? usersSnapshot.val() : {};
           const driversList: DriverWithUser[] = [];
+          const freeTrialCleanupUpdates: Record<string, any> = {};
 
           Object.entries(driversData).forEach(([id, driver]: [string, any]) => {
             // Get user data for this driver - try both driver.userId and driver.uid
             const driverUserId = driver.userId || driver.uid || id;
             const userData = usersData[driverUserId];
+            const isLegacyFreeTrial = isLegacyFreeTrialDriver(driver);
+            const subscriptionStatus = isLegacyFreeTrial
+              ? 'none'
+              : driver.subscriptionStatus || (driver.hasActiveSubscription ? 'active' : 'none');
+            const subscriptionType = isLegacyFreeTrial
+              ? ''
+              : driver.subscriptionType || driver.subscriptionPlan || '';
+            const subscriptionEndDate = isLegacyFreeTrial
+              ? null
+              : normalizeSubscriptionEndDate(driver.subscriptionEndDate, driver.subscriptionExpiry);
+
+            if (isLegacyFreeTrial) {
+              freeTrialCleanupUpdates[`drivers/${id}/hasActiveSubscription`] = false;
+              freeTrialCleanupUpdates[`drivers/${id}/subscriptionStatus`] = 'none';
+              freeTrialCleanupUpdates[`drivers/${id}/subscriptionType`] = null;
+              freeTrialCleanupUpdates[`drivers/${id}/subscriptionPlan`] = null;
+              freeTrialCleanupUpdates[`drivers/${id}/subscriptionStartDate`] = null;
+              freeTrialCleanupUpdates[`drivers/${id}/subscriptionEndDate`] = null;
+              freeTrialCleanupUpdates[`drivers/${id}/subscriptionExpiry`] = null;
+            }
 
             // Map field names between Flutter and web-admin for consistency
             const driverWithUser = {
@@ -195,18 +246,24 @@ export default function DriversPage() {
               totalEarnings: driver.totalEarnings || 0,
               completedTrips: driver.completedTrips || 0,
               // Subscription fields - handle both naming conventions
-              subscriptionStatus: driver.subscriptionStatus || 
-                (driver.hasActiveSubscription ? 'active' : 'expired') ||
-                (driver.subscriptionPlan === 'freeTrial' ? 'free_trial' : 'expired'),
-              subscriptionType: driver.subscriptionType || driver.subscriptionPlan || '',
-              subscriptionEndDate: driver.subscriptionEndDate || 
-                (driver.subscriptionExpiry ? new Date(driver.subscriptionExpiry).getTime() : null),
-              subscriptionStartDate: driver.subscriptionStartDate || null,
+              subscriptionStatus,
+              subscriptionType,
+              subscriptionPlan: subscriptionType,
+              hasActiveSubscription: isLegacyFreeTrial ? false : Boolean(driver.hasActiveSubscription),
+              subscriptionEndDate: subscriptionEndDate ?? undefined,
+              subscriptionStartDate: isLegacyFreeTrial ? undefined : driver.subscriptionStartDate || undefined,
+              subscriptionExpiry: isLegacyFreeTrial ? undefined : driver.subscriptionExpiry,
               verificationStatus: driver.verificationStatus || driver.status || 'pending',
             };
 
             driversList.push(driverWithUser);
           });
+
+          if (Object.keys(freeTrialCleanupUpdates).length > 0) {
+            update(ref(database), freeTrialCleanupUpdates).catch((error) => {
+              console.error('Error removing legacy free trial data:', error);
+            });
+          }
 
           // Sort by online status and then by name
           driversList.sort((a, b) => {
@@ -342,11 +399,19 @@ export default function DriversPage() {
     const badges: any = {
       'active': 'bg-green-100 text-green-800',
       'expired': 'bg-red-100 text-red-800',
-      'free_trial': 'bg-blue-100 text-blue-800',
+      'none': 'bg-gray-100 text-gray-600',
     };
+    const labels: Record<string, string> = {
+      active: 'Active',
+      expired: 'Expired',
+      none: 'No Subscription',
+      cancelled: 'Cancelled',
+      canceled: 'Cancelled',
+    };
+
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badges[status] || 'bg-gray-100 text-gray-800'}`}>
-        {status === 'free_trial' ? 'Free Trial' : status.charAt(0).toUpperCase() + status.slice(1)}
+        {labels[status] || status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
   };
@@ -356,7 +421,7 @@ export default function DriversPage() {
     const planLower = subscriptionType.toLowerCase();
     
     if (planLower === 'free_trial' || planLower === 'freetrial') {
-      return '🎁 Free Trial (15 Days)';
+      return '';
     } else if (planLower === '1_month' || planLower === 'onemonth' || planLower === 'one_month') {
       return '📦 1 Month Plan';
     } else if (planLower === '3_months' || planLower === 'threemonths' || planLower === 'three_months') {
@@ -367,22 +432,24 @@ export default function DriversPage() {
 
   const getSubscriptionInfo = (driver: DriverWithUser) => {
     // Determine subscription status - handle multiple field names
-    let status = driver.subscriptionStatus || 'none';
-    const endDate = driver.subscriptionEndDate;
-    const planType = driver.subscriptionType || driver.subscriptionPlan;
+    let status = (driver.subscriptionStatus || 'none').toLowerCase();
+    let endDate = driver.subscriptionEndDate;
+    let planType = driver.subscriptionType || driver.subscriptionPlan;
     const hasActive = driver.hasActiveSubscription;
+    const isLegacyFreeTrial = isFreeTrialValue(status) || isFreeTrialValue(planType);
+
+    if (isLegacyFreeTrial) {
+      status = 'none';
+      endDate = undefined;
+      planType = '';
+    }
     
     // Normalize status
     if (status === 'none' || !status) {
       if (hasActive) {
         status = 'active';
       } else if (planType) {
-        const planLower = (planType || '').toLowerCase();
-        if (planLower.includes('trial') || planLower === 'freetrial') {
-          status = 'free_trial';
-        } else {
-          status = 'expired';
-        }
+        status = 'expired';
       } else {
         status = 'none';
       }
@@ -430,7 +497,7 @@ export default function DriversPage() {
             {planDisplay}
           </div>
         )}
-        {endDate && (status === 'active' || status === 'free_trial') && (
+        {endDate && status === 'active' && (
           <div className="text-xs text-gray-600">
             <div className="flex items-center space-x-1">
               <Calendar className="w-3 h-3" />
@@ -656,9 +723,7 @@ export default function DriversPage() {
                       <td className="py-4 px-6">
                         <div className="flex flex-col space-y-2">
                           {/* Show Expire button for active subscriptions */}
-                          {(driver.subscriptionStatus === 'active' || 
-                            driver.subscriptionStatus === 'free_trial' ||
-                            driver.hasActiveSubscription) && (
+                          {driver.subscriptionStatus === 'active' && driver.hasActiveSubscription && (
                             <button
                               onClick={() => expireDriverSubscription(
                                 driver.driverId,
@@ -683,7 +748,10 @@ export default function DriversPage() {
                           )}
                           
                           {/* Show Restore button for manually expired subscriptions */}
-                          {(driver as any).expiredManually && (driver as any).originalSubscriptionEndDate && (
+                          {(driver as any).expiredManually &&
+                            (driver as any).originalSubscriptionEndDate &&
+                            !isFreeTrialValue((driver as any).originalSubscriptionStatus) &&
+                            !isFreeTrialValue((driver as any).originalSubscriptionType) && (
                             <button
                               onClick={() => restoreDriverSubscription(
                                 driver.driverId,

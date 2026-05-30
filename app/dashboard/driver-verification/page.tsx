@@ -7,6 +7,7 @@ import { database } from '@/lib/firebase';
 import { User, Driver } from '@/types';
 import { Search, CheckCircle, XCircle, Eye, Clock, FileText } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { createAdminNotification } from '@/lib/adminNotifications';
 
 interface DriverWithUser extends Driver {
   user?: User;
@@ -128,10 +129,6 @@ export default function DriverVerificationPage() {
       const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
       const now = Date.now();
 
-      // Calculate subscription dates (7 days free trial)
-      const subscriptionStartDate = now;
-      const subscriptionEndDate = now + (7 * 24 * 60 * 60 * 1000); // 7 days
-
       const updates: any = {};
       
       // Update driver record
@@ -142,17 +139,29 @@ export default function DriverVerificationPage() {
       updates[`drivers/${driver.driverId}/approvedAt`] = now;
       updates[`drivers/${driver.driverId}/verifiedBy`] = adminUser.userId;
       updates[`drivers/${driver.driverId}/verifiedAt`] = now;
-      updates[`drivers/${driver.driverId}/subscriptionStartDate`] = subscriptionStartDate;
-      updates[`drivers/${driver.driverId}/subscriptionEndDate`] = subscriptionEndDate;
-      updates[`drivers/${driver.driverId}/subscriptionStatus`] = 'free_trial';
-      updates[`drivers/${driver.driverId}/subscriptionType`] = 'free_trial';
+      // Drivers must activate a paid subscription before accepting trips.
+      updates[`drivers/${driver.driverId}/hasActiveSubscription`] = false;
+      updates[`drivers/${driver.driverId}/subscriptionStatus`] = 'none';
+      updates[`drivers/${driver.driverId}/subscriptionType`] = null;
+      updates[`drivers/${driver.driverId}/subscriptionPlan`] = null;
+      updates[`drivers/${driver.driverId}/subscriptionStartDate`] = null;
+      updates[`drivers/${driver.driverId}/subscriptionEndDate`] = null;
+      updates[`drivers/${driver.driverId}/subscriptionExpiry`] = null;
 
       // Update user record
       updates[`users/${driver.userId}/verificationStatus`] = 'approved';
+      updates[`users/${driver.userId}/isApproved`] = true;
       updates[`users/${driver.userId}/verifiedBy`] = adminUser.userId;
       updates[`users/${driver.userId}/verifiedAt`] = now;
 
       await update(ref(database), updates);
+
+      await createAdminNotification({
+        title: 'Driver Approved',
+        message: `${driver.user?.name || driver.name || 'A driver'} was approved by admin.`,
+        type: 'driverVerified',
+        relatedId: driver.driverId,
+      });
 
       alert('Driver approved successfully!');
     } catch (error) {
@@ -178,17 +187,26 @@ export default function DriverVerificationPage() {
       // Update driver record
       updates[`drivers/${selectedDriver.driverId}/verificationStatus`] = 'rejected';
       updates[`drivers/${selectedDriver.driverId}/isApproved`] = false;
+      updates[`drivers/${selectedDriver.driverId}/status`] = 'rejected';
       updates[`drivers/${selectedDriver.driverId}/rejectionReason`] = rejectionReason;
       updates[`drivers/${selectedDriver.driverId}/verifiedBy`] = adminUser.userId;
       updates[`drivers/${selectedDriver.driverId}/verifiedAt`] = now;
 
       // Update user record
       updates[`users/${selectedDriver.userId}/verificationStatus`] = 'rejected';
+      updates[`users/${selectedDriver.userId}/isApproved`] = false;
       updates[`users/${selectedDriver.userId}/rejectionReason`] = rejectionReason;
       updates[`users/${selectedDriver.userId}/verifiedBy`] = adminUser.userId;
       updates[`users/${selectedDriver.userId}/verifiedAt`] = now;
 
       await update(ref(database), updates);
+
+      await createAdminNotification({
+        title: 'Driver Rejected',
+        message: `${selectedDriver.user?.name || selectedDriver.name || 'A driver'} was rejected by admin.`,
+        type: 'driverRejected',
+        relatedId: selectedDriver.driverId,
+      });
 
       alert('Driver rejected');
       setShowModal(false);

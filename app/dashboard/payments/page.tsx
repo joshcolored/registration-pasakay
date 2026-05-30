@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ref, onValue, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
+import { createAdminNotification } from '@/lib/adminNotifications';
 import { Payment } from '@/types';
 import { Search, CheckCircle, XCircle, Eye, Clock, DollarSign } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -76,7 +77,7 @@ export default function PaymentsPage() {
             } else if (planValue === 'threeMonths' || planValue === '3_months') {
               planName = '3 Months Plan';
             } else if (planValue === 'freeTrial' || planValue === 'free_trial') {
-              planName = 'Free Trial';
+              planName = 'N/A';
             } else {
               planName = planValue || 'N/A';
             }
@@ -192,6 +193,13 @@ export default function PaymentsPage() {
 
       await update(ref(database), updates);
 
+      await createAdminNotification({
+        title: 'Payment Approved',
+        message: `${payment.driverName}'s ${payment.planName || payment.plan} payment was approved.`,
+        type: 'paymentVerified',
+        relatedId: payment.paymentId,
+      });
+
       alert('Payment approved successfully!');
     } catch (error) {
       console.error('Error approving payment:', error);
@@ -220,6 +228,13 @@ export default function PaymentsPage() {
       updates[`subscription_payments/${selectedPayment.paymentId}/verifiedAt`] = now;
 
       await update(ref(database), updates);
+
+      await createAdminNotification({
+        title: 'Payment Rejected',
+        message: `${selectedPayment.driverName}'s ${selectedPayment.planName || selectedPayment.plan} payment was rejected.`,
+        type: 'paymentRejected',
+        relatedId: selectedPayment.paymentId,
+      });
 
       alert('Payment rejected');
       setShowRejectModal(false);
