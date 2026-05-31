@@ -8,6 +8,7 @@ import { EmailAuthProvider, reauthenticateWithCredential, updateEmail, sendEmail
 import { FareSettings, SupportSettings, AppSettings } from '@/types';
 import { Save, DollarSign, Phone, Mail, User, CreditCard, Upload, X, Edit, Facebook, Clock, Headphones, ImageIcon, Wallet, Server, Lock, Send, Eye, EyeOff, Percent } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { getStoredAdminSession, updateStoredAdminSession } from '@/lib/adminSession';
 
 interface AdminProfile {
   name: string;
@@ -175,15 +176,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Check if admin is logged in
-    const adminUser = localStorage.getItem('adminUser');
+    const adminUser = getStoredAdminSession();
     if (!adminUser) {
       router.push('/pasakay/login');
       return;
     }
 
-    const userData = JSON.parse(adminUser);
-    setAdminUserId(userData.userId);
-    loadSettings(userData.userId);
+    setAdminUserId(adminUser.userId);
+    loadSettings(adminUser.userId);
   }, [router]);
 
   const getIdToken = async () => {
@@ -367,12 +367,7 @@ export default function SettingsPage() {
       });
 
       // Update localStorage with new name
-      const adminUser = localStorage.getItem('adminUser');
-      if (adminUser) {
-        const userData = JSON.parse(adminUser);
-        userData.name = adminProfile.name;
-        localStorage.setItem('adminUser', JSON.stringify(userData));
-      }
+      updateStoredAdminSession({ name: adminProfile.name });
 
       alert('Admin profile saved successfully!');
     } catch (error) {
@@ -1089,12 +1084,7 @@ export default function SettingsPage() {
       setAdminProfile({ ...adminProfile, email: newEmail });
 
       // Update localStorage
-      const adminUser = localStorage.getItem('adminUser');
-      if (adminUser) {
-        const userData = JSON.parse(adminUser);
-        userData.email = newEmail;
-        localStorage.setItem('adminUser', JSON.stringify(userData));
-      }
+      updateStoredAdminSession({ email: newEmail });
 
       // Send verification email to new address
       try {

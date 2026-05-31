@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import StatsCard from '@/components/StatsCard';
+import { getStoredAdminSession } from '@/lib/adminSession';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function DashboardPage() {
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
 
   useEffect(() => {
-    const adminUser = localStorage.getItem('adminUser');
+    const adminUser = getStoredAdminSession();
     if (!adminUser) {
       router.push('/pasakay/login');
       return;

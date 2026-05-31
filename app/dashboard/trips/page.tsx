@@ -7,6 +7,7 @@ import { database } from '@/lib/firebase';
 import { Trip } from '@/types';
 import { Search, MapPin, Calendar, DollarSign, TrendingUp, Radio } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { getStoredAdminSession } from '@/lib/adminSession';
 
 export default function TripsPage() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function TripsPage() {
 
   useEffect(() => {
     // Check if admin is logged in
-    const adminUser = localStorage.getItem('adminUser');
+    const adminUser = getStoredAdminSession();
     if (!adminUser) {
       router.push('/pasakay/login');
       return;
@@ -360,4 +361,3 @@ export default function TripsPage() {
     </DashboardLayout>
   );
 }
-

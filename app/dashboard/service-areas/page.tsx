@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ref, get, set } from 'firebase/database';
 import { database } from '@/lib/firebase';
-import { 
+import {
   MapPin, 
   Plus, 
   Trash2, 
@@ -18,6 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { getStoredAdminSession } from '@/lib/adminSession';
 
 interface LatLngPoint {
   latitude: number;
@@ -183,7 +184,7 @@ export default function ServiceAreasPage() {
   const [newPoint, setNewPoint] = useState({ latitude: '', longitude: '' });
 
   useEffect(() => {
-    const adminUser = localStorage.getItem('adminUser');
+    const adminUser = getStoredAdminSession();
     if (!adminUser) {
       router.push('/pasakay/login');
       return;

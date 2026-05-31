@@ -7,6 +7,7 @@ import { database } from '@/lib/firebase';
 import { User } from '@/types';
 import { Search, UserX, UserCheck, Mail, Phone, Calendar, Trash2 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { getStoredAdminSession } from '@/lib/adminSession';
 
 export default function UsersPage() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     // Check if admin is logged in
-    const adminUser = localStorage.getItem('adminUser');
+    const adminUser = getStoredAdminSession();
     if (!adminUser) {
       router.push('/pasakay/login');
       return;

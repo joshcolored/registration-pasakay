@@ -2,13 +2,14 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getStoredAdminSession } from '@/lib/adminSession';
 
 export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
     // Check if admin is logged in
-    const adminUser = localStorage.getItem('adminUser');
+    const adminUser = getStoredAdminSession();
     if (adminUser) {
       router.push('/dashboard');
     } else {

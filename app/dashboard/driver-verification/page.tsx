@@ -8,6 +8,7 @@ import { User, Driver } from '@/types';
 import { Search, CheckCircle, XCircle, Eye, Clock, FileText } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { createAdminNotification } from '@/lib/adminNotifications';
+import { getStoredAdminSession } from '@/lib/adminSession';
 
 interface DriverWithUser extends Driver {
   user?: User;
@@ -29,7 +30,7 @@ export default function DriverVerificationPage() {
 
   useEffect(() => {
     // Check if admin is logged in
-    const adminUser = localStorage.getItem('adminUser');
+    const adminUser = getStoredAdminSession();
     if (!adminUser) {
       router.push('/pasakay/login');
       return;
@@ -126,7 +127,11 @@ export default function DriverVerificationPage() {
 
     setProcessing(true);
     try {
-      const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+      const adminUser = getStoredAdminSession();
+      if (!adminUser) {
+        router.push('/pasakay/login?expired=1');
+        return;
+      }
       const now = Date.now();
 
       const updates: any = {};
@@ -179,7 +184,11 @@ export default function DriverVerificationPage() {
 
     setProcessing(true);
     try {
-      const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+      const adminUser = getStoredAdminSession();
+      if (!adminUser) {
+        router.push('/pasakay/login?expired=1');
+        return;
+      }
       const now = Date.now();
 
       const updates: any = {};

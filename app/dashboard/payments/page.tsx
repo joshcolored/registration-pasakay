@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ref, onValue, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { createAdminNotification } from '@/lib/adminNotifications';
+import { getStoredAdminSession } from '@/lib/adminSession';
 import { Payment } from '@/types';
 import { Search, CheckCircle, XCircle, Eye, Clock, DollarSign } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -52,7 +53,7 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     // Check if admin is logged in
-    const adminUser = localStorage.getItem('adminUser');
+    const adminUser = getStoredAdminSession();
     if (!adminUser) {
       router.push('/pasakay/login');
       return;
@@ -158,7 +159,11 @@ export default function PaymentsPage() {
 
     setProcessing(true);
     try {
-      const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+      const adminUser = getStoredAdminSession();
+      if (!adminUser) {
+        router.push('/pasakay/login?expired=1');
+        return;
+      }
       const now = Date.now();
 
       // Calculate subscription dates based on plan
@@ -216,7 +221,11 @@ export default function PaymentsPage() {
 
     setProcessing(true);
     try {
-      const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+      const adminUser = getStoredAdminSession();
+      if (!adminUser) {
+        router.push('/pasakay/login?expired=1');
+        return;
+      }
       const now = Date.now();
 
       const updates: any = {};

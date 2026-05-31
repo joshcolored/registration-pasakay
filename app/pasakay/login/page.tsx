@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { get, off, onValue, ref } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
+import { createAdminSession, saveAdminSession } from '@/lib/adminSession';
 import { useRegisterScrollMotion } from '@/components/RegisterMotion';
 import {
   CheckCircle,
@@ -254,7 +255,7 @@ export default function LoginPage() {
         setError(data.error || 'Invalid code');
         return;
       }
-      localStorage.setItem('adminUser', JSON.stringify(pendingAdmin));
+      saveAdminSession(createAdminSession(pendingAdmin));
       router.push('/dashboard');
     } catch (err) {
       console.error('Verify OTP error', err);

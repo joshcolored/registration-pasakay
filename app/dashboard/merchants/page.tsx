@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ref, onValue, update, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { createAdminNotification } from '@/lib/adminNotifications';
+import { getStoredAdminSession } from '@/lib/adminSession';
 import { 
   Store, Search, CheckCircle, XCircle, Clock, Phone, Mail, 
   MapPin, Calendar, FileText, Eye, User, Star, ShoppingBag,
@@ -77,6 +79,7 @@ const businessTypeLabels: Record<string, string> = {
 };
 
 export default function MerchantsPage() {
+  const router = useRouter();
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [filteredMerchants, setFilteredMerchants] = useState<Merchant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +98,12 @@ export default function MerchantsPage() {
   const [deletingMerchantId, setDeletingMerchantId] = useState<string | null>(null);
 
   useEffect(() => {
+    const adminUser = getStoredAdminSession();
+    if (!adminUser) {
+      router.push('/pasakay/login');
+      return;
+    }
+
     const merchantsRef = ref(database, 'merchants');
     
     const unsubscribe = onValue(merchantsRef, (snapshot) => {
@@ -112,9 +121,11 @@ export default function MerchantsPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
+    if (!getStoredAdminSession()) return;
+
     const menuItemsRef = ref(database, 'menu_items');
     const unsubscribe = onValue(
       menuItemsRef,
@@ -157,6 +168,8 @@ export default function MerchantsPage() {
   }, []);
 
   useEffect(() => {
+    if (!getStoredAdminSession()) return;
+
     const ordersRef = ref(database, 'food_orders');
     const unsubscribe = onValue(
       ordersRef,

@@ -25,6 +25,11 @@ import NotificationBell from './NotificationBell';
 import { auth, database } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { ref, onValue } from 'firebase/database';
+import {
+  clearAdminSession,
+  getAdminSessionTimeRemaining,
+  getStoredAdminSession,
+} from '@/lib/adminSession';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -98,15 +103,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, []);
 
   useEffect(() => {
-    const adminUser = localStorage.getItem('adminUser');
-    if (adminUser) {
-      try {
-        const user = JSON.parse(adminUser);
-        setAdminName(user.name || 'Admin');
-      } catch {
-        setAdminName('Admin');
-      }
+    const endExpiredSession = async () => {
+      clearAdminSession();
+      await signOut(auth).catch((error) => console.error('Session sign out error:', error));
+      router.push('/pasakay/login?expired=1');
+    };
+
+    const adminUser = getStoredAdminSession();
+    if (!adminUser) {
+      endExpiredSession();
+      return;
     }
+
+    setAdminName(adminUser.name || 'Admin');
+
+    const timeoutId = window.setTimeout(
+      endExpiredSession,
+      getAdminSessionTimeRemaining(adminUser)
+    );
 
     const appRef = ref(database, 'settings/app');
     const unsubscribe = onValue(
@@ -136,13 +150,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       }
     );
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      window.clearTimeout(timeoutId);
+      unsubscribe();
+    };
+  }, [router]);
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      localStorage.removeItem('adminUser');
+      clearAdminSession();
       router.push('/pasakay/login');
     } catch (error) {
       console.error('Logout error:', error);

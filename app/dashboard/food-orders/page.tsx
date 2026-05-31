@@ -1,10 +1,12 @@
 ﻿'use client';
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { database } from '@/lib/firebase';
 import { ref, onValue, off } from 'firebase/database';
 import Link from 'next/link';
+import { getStoredAdminSession } from '@/lib/adminSession';
 import {
   Truck,
   Wallet,
@@ -42,6 +44,7 @@ type OrderItem = {
 };
 
 export default function FoodOrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<FoodOrder[]>([]);
   const [driverNames, setDriverNames] = useState<Record<string, string>>({});
   const [menuItemImages, setMenuItemImages] = useState<Record<string, string>>({});
@@ -51,6 +54,12 @@ export default function FoodOrdersPage() {
   const [merchantCommissionRate, setMerchantCommissionRate] = useState(0.1);
 
   useEffect(() => {
+    const adminUser = getStoredAdminSession();
+    if (!adminUser) {
+      router.push('/pasakay/login');
+      return;
+    }
+
     const ordersRef = ref(database, 'food_orders');
     const driversRef = ref(database, 'drivers');
     const menuItemsRef = ref(database, 'menu_items');
@@ -199,7 +208,7 @@ export default function FoodOrdersPage() {
       unsubscribeMenuItems();
       unsubscribeCommission();
     };
-  }, []);
+  }, [router]);
 
   const filtered = useMemo(() => {
     let list = orders;

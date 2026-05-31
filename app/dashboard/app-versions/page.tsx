@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { ref, onValue, set } from 'firebase/database';
 import { database } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Smartphone, Download, Save, AlertCircle, CheckCircle, Info, Bell, Send } from 'lucide-react';
+import { getStoredAdminSession } from '@/lib/adminSession';
 
 interface AppVersionConfig {
   latestVersion: string;
@@ -35,6 +37,7 @@ const defaultConfig: AppVersionConfig = {
 };
 
 export default function AppVersionsPage() {
+  const router = useRouter();
   const [config, setConfig] = useState<AppConfig>({
     passenger: { ...defaultConfig },
     driver: { ...defaultConfig },
@@ -46,6 +49,12 @@ export default function AppVersionsPage() {
   const [notifySuccess, setNotifySuccess] = useState<'passenger' | 'driver' | null>(null);
 
   useEffect(() => {
+    const adminUser = getStoredAdminSession();
+    if (!adminUser) {
+      router.push('/pasakay/login');
+      return;
+    }
+
     const configRef = ref(database, 'app_config');
     const unsubscribe = onValue(configRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -59,7 +68,7 @@ export default function AppVersionsPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const handleSave = async (appType: 'passenger' | 'driver') => {
     setSaving(appType);

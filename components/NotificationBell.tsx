@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Bell, X, Check, Trash2, AlertTriangle, Car, CreditCard, MapPin, CheckCircle2 } from 'lucide-react';
 import { database } from '@/lib/firebase';
 import { ref, onValue, off, update, remove, get } from 'firebase/database';
+import { getStoredAdminSession } from '@/lib/adminSession';
 
 interface Notification {
   notificationId: string;
@@ -25,17 +26,13 @@ export default function NotificationBell() {
   const [adminUid, setAdminUid] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Get admin UID from localStorage
+  // Get admin UID from the active admin session.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const adminUser = localStorage.getItem('adminUser');
-      if (adminUser) {
-        const user = JSON.parse(adminUser);
-        // Check both 'userId' and 'uid' for compatibility
-        const uid = user.userId || user.uid;
-        console.log('Admin UID loaded:', uid);
-        setAdminUid(uid);
-      }
+    const user = getStoredAdminSession();
+    if (user) {
+      const uid = user.userId;
+      console.log('Admin UID loaded:', uid);
+      setAdminUid(uid);
     }
   }, []);
 

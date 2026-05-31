@@ -7,6 +7,7 @@ import { database } from '@/lib/firebase';
 import { User, Driver } from '@/types';
 import { Search, Car, UserCheck, UserX, Mail, Phone, Calendar, MapPin, XCircle, RotateCcw, Trash2 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { getStoredAdminSession } from '@/lib/adminSession';
 
 interface DriverWithUser extends Driver {
   user?: User;
@@ -177,7 +178,7 @@ export default function DriversPage() {
 
   useEffect(() => {
     // Check if admin is logged in
-    const adminUser = localStorage.getItem('adminUser');
+    const adminUser = getStoredAdminSession();
     if (!adminUser) {
       router.push('/pasakay/login');
       return;
