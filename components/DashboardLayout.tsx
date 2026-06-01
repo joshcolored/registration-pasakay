@@ -61,6 +61,7 @@ const navGroups = [
   {
     label: 'System',
     items: [
+      { name: 'Deleted Accounts', href: '/dashboard/deleted-accounts', icon: ShieldCheck },
       { name: 'App Versions', href: '/dashboard/app-versions', icon: Smartphone },
       { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     ],
@@ -77,6 +78,7 @@ const pageDescriptions: Record<string, string> = {
   '/dashboard/trips': 'Trip monitoring',
   '/dashboard/service-areas': 'Coverage management',
   '/dashboard/payments': 'Payment verification',
+  '/dashboard/deleted-accounts': 'Account recovery blocks',
   '/dashboard/app-versions': 'Release controls',
   '/dashboard/settings': 'Platform settings',
 };
