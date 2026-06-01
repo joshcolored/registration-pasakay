@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle, AlertCircle, Camera, Eye, EyeOff, X } from 'lucide-react';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, deleteUser, sendEmailVerification } from 'firebase/auth';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -38,9 +38,65 @@ const validateImageFile = (file: File | null, label: string) => {
   return '';
 };
 
+type FaceMatchStatus = 'pending' | 'checking' | 'passed' | 'review' | 'failed';
+
+let faceApiLoadPromise: Promise<any> | null = null;
+
+const loadFaceApiModels = async () => {
+  if (typeof window === 'undefined') {
+    throw new Error('Face matching only runs in the browser');
+  }
+
+  if (!faceApiLoadPromise) {
+    faceApiLoadPromise = import('@vladmandic/face-api').then(async (module) => {
+      const faceapi = (module as any).default || module;
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+        faceapi.nets.faceLandmark68TinyNet.loadFromUri('/models'),
+        faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+      ]);
+      return faceapi;
+    });
+  }
+
+  return faceApiLoadPromise;
+};
+
+const loadImageFromFile = (file: File) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(`Unable to read ${file.name}`));
+    };
+    image.src = url;
+  });
+
+const calculateFaceMatchScore = (distance: number) => {
+  const value = Math.max(0, Math.min(1, distance));
+  if (value <= 0.35) return Math.round(88 + ((0.35 - value) / 0.35) * 12);
+  if (value <= 0.45) return Math.round(70 + ((0.45 - value) / 0.1) * 18);
+  if (value <= 0.6) return Math.round(45 + ((0.6 - value) / 0.15) * 25);
+  if (value <= 0.8) return Math.round(((0.8 - value) / 0.2) * 44);
+  return 0;
+};
+
+const getFaceMatchStatusFromScore = (score: number): FaceMatchStatus => {
+  if (score >= 70) return 'passed';
+  if (score >= 45) return 'review';
+  return 'failed';
+};
+
 export default function DriverRegistrationPage() {
   const router = useRouter();
   const pageRef = useRef<HTMLDivElement | null>(null);
+  const selfieVideoRef = useRef<HTMLVideoElement | null>(null);
+  const selfieStreamRef = useRef<MediaStream | null>(null);
   useRegisterScrollMotion(pageRef);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -63,24 +119,50 @@ export default function DriverRegistrationPage() {
   });
 
   // File uploads
-  const [driverLicenseFile, setDriverLicenseFile] = useState<File | null>(null);
-  const [driverLicensePreview, setDriverLicensePreview] = useState<string | null>(null);
+  const [driverLicenseFrontFile, setDriverLicenseFrontFile] = useState<File | null>(null);
+  const [driverLicenseFrontPreview, setDriverLicenseFrontPreview] = useState<string | null>(null);
+  const [driverLicenseBackFile, setDriverLicenseBackFile] = useState<File | null>(null);
+  const [driverLicenseBackPreview, setDriverLicenseBackPreview] = useState<string | null>(null);
   const [orCrFile, setOrCrFile] = useState<File | null>(null);
   const [orCrPreview, setOrCrPreview] = useState<string | null>(null);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const [faceMatchScore, setFaceMatchScore] = useState<number | null>(null);
+  const [faceMatchStatus, setFaceMatchStatus] = useState<FaceMatchStatus>('pending');
+  const [faceMatchMessage, setFaceMatchMessage] = useState('');
+  const [faceMatchLoading, setFaceMatchLoading] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'license' | 'orcr') => {
+  const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'licenseFront' | 'licenseBack' | 'orcr'
+  ) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (type === 'licenseFront') {
+        setFaceMatchScore(null);
+        setFaceMatchStatus('pending');
+        setFaceMatchMessage('');
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (type === 'license') {
-          setDriverLicenseFile(file);
-          setDriverLicensePreview(reader.result as string);
+        if (type === 'licenseFront') {
+          setDriverLicenseFrontFile(file);
+          setDriverLicenseFrontPreview(reader.result as string);
+          if (selfieFile) {
+            void checkFaceMatch(file, selfieFile);
+          }
+        } else if (type === 'licenseBack') {
+          setDriverLicenseBackFile(file);
+          setDriverLicenseBackPreview(reader.result as string);
         } else {
           setOrCrFile(file);
           setOrCrPreview(reader.result as string);
@@ -89,6 +171,201 @@ export default function DriverRegistrationPage() {
       reader.readAsDataURL(file);
     }
   };
+
+  const stopSelfieCamera = (updateState = true) => {
+    selfieStreamRef.current?.getTracks().forEach((track) => track.stop());
+    selfieStreamRef.current = null;
+    if (selfieVideoRef.current) {
+      selfieVideoRef.current.srcObject = null;
+    }
+    if (updateState) {
+      setCameraOpen(false);
+      setCameraReady(false);
+      setCameraStarting(false);
+    }
+  };
+
+  const closeSelfieCamera = () => {
+    stopSelfieCamera();
+  };
+
+  const startSelfieCamera = async () => {
+    setCameraError('');
+    setCameraReady(false);
+    setCameraStarting(true);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera is not available in this browser.');
+      }
+
+      stopSelfieCamera();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 720 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      selfieStreamRef.current = stream;
+      setCameraOpen(true);
+    } catch (error: any) {
+      console.error('Camera error:', error);
+      setCameraError(error?.message || 'Unable to open camera. Please allow camera permission and try again.');
+      stopSelfieCamera();
+    }
+  };
+
+  const captureSelfie = () => {
+    const video = selfieVideoRef.current;
+    if (!cameraReady || !video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+      setCameraError('Camera is still starting. Please try again in a moment.');
+      return;
+    }
+
+    const size = Math.min(video.videoWidth || 720, video.videoHeight || 720);
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setCameraError('Unable to capture selfie from camera.');
+      return;
+    }
+
+    const sourceX = Math.max(0, ((video.videoWidth || size) - size) / 2);
+    const sourceY = Math.max(0, ((video.videoHeight || size) - size) / 2);
+    context.save();
+    context.translate(size, 0);
+    context.scale(-1, 1);
+    context.drawImage(video, sourceX, sourceY, size, size, 0, 0, size, size);
+    context.restore();
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setCameraError('Unable to save captured selfie.');
+          return;
+        }
+        const file = new File([blob], 'driver-selfie.jpg', { type: 'image/jpeg' });
+        setSelfieFile(file);
+        setSelfiePreview(URL.createObjectURL(blob));
+        setCameraError('');
+        void checkFaceMatch(driverLicenseFrontFile, file);
+        stopSelfieCamera();
+      },
+      'image/jpeg',
+      0.92
+    );
+  };
+
+  const checkFaceMatch = async (licenseFile = driverLicenseFrontFile, capturedSelfieFile = selfieFile) => {
+    if (!licenseFile || !capturedSelfieFile) {
+      setFaceMatchScore(null);
+      setFaceMatchStatus('pending');
+      setFaceMatchMessage('Upload the license front image and capture a selfie to get a match result.');
+      return null;
+    }
+
+    setFaceMatchLoading(true);
+    setFaceMatchStatus('checking');
+    setFaceMatchMessage('Checking face match...');
+
+    try {
+      const faceapi = await loadFaceApiModels();
+      const [licenseImage, selfieImage] = await Promise.all([
+        loadImageFromFile(licenseFile),
+        loadImageFromFile(capturedSelfieFile),
+      ]);
+      const options = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 416,
+        scoreThreshold: 0.35,
+      });
+
+      const licenseFace = await faceapi
+        .detectSingleFace(licenseImage, options)
+        .withFaceLandmarks(true)
+        .withFaceDescriptor();
+      const selfieFace = await faceapi
+        .detectSingleFace(selfieImage, options)
+        .withFaceLandmarks(true)
+        .withFaceDescriptor();
+
+      if (!licenseFace || !selfieFace) {
+        setFaceMatchScore(null);
+        setFaceMatchStatus('review');
+        setFaceMatchMessage(
+          !licenseFace && !selfieFace
+            ? 'Could not detect a face in the license and selfie. Admin must review manually.'
+            : !licenseFace
+              ? 'Could not detect a face in the license photo. Admin must review manually.'
+              : 'Could not detect a face in the selfie. Please retake or let admin review manually.'
+        );
+        return null;
+      }
+
+      const distance = faceapi.euclideanDistance(licenseFace.descriptor, selfieFace.descriptor);
+      const score = calculateFaceMatchScore(distance);
+      const status = getFaceMatchStatusFromScore(score);
+      setFaceMatchScore(score);
+      setFaceMatchStatus(status);
+      setFaceMatchMessage(
+        status === 'passed'
+          ? `Face match passed at ${score}%.`
+          : status === 'review'
+            ? `Face match is ${score}%. Admin should review this manually.`
+            : `Face match is only ${score}%. Please check the documents carefully.`
+      );
+      return { score, status };
+    } catch (error) {
+      console.error('Face match error:', error);
+      setFaceMatchScore(null);
+      setFaceMatchStatus('review');
+      setFaceMatchMessage('Face match could not run on this device. Admin must review manually.');
+      return null;
+    } finally {
+      setFaceMatchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!cameraOpen || !selfieVideoRef.current || !selfieStreamRef.current) return;
+
+    const video = selfieVideoRef.current;
+    video.srcObject = selfieStreamRef.current;
+
+    const markReady = () => {
+      setCameraReady(true);
+      setCameraStarting(false);
+      setCameraError('');
+    };
+
+    video.addEventListener('loadedmetadata', markReady);
+    video.addEventListener('canplay', markReady);
+    video.play().catch((error) => {
+      console.error('Unable to play selfie camera stream:', error);
+      setCameraError('Tap Open Camera again or allow camera permission in your browser.');
+      setCameraStarting(false);
+    });
+
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      markReady();
+    }
+
+    return () => {
+      video.removeEventListener('loadedmetadata', markReady);
+      video.removeEventListener('canplay', markReady);
+    };
+  }, [cameraOpen]);
+
+  useEffect(() => {
+    return () => {
+      stopSelfieCamera(false);
+      if (selfiePreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(selfiePreview);
+      }
+    };
+  }, [selfiePreview]);
 
   // Upload file to Cloudinary
   const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
@@ -150,15 +427,27 @@ export default function DriverRegistrationPage() {
       return;
     }
 
-    const selectedDriverLicenseFile = driverLicenseFile;
-    if (!selectedDriverLicenseFile) {
-      setError('Driver\'s license image is required');
+    const selectedDriverLicenseFrontFile = driverLicenseFrontFile;
+    if (!selectedDriverLicenseFrontFile) {
+      setError('Driver\'s license front image is required');
       return;
     }
 
-    const licenseFileError = validateImageFile(selectedDriverLicenseFile, 'Driver\'s license image');
-    if (licenseFileError) {
-      setError(licenseFileError);
+    const licenseFrontFileError = validateImageFile(selectedDriverLicenseFrontFile, 'Driver\'s license front image');
+    if (licenseFrontFileError) {
+      setError(licenseFrontFileError);
+      return;
+    }
+
+    const selectedDriverLicenseBackFile = driverLicenseBackFile;
+    if (!selectedDriverLicenseBackFile) {
+      setError('Driver\'s license back image is required');
+      return;
+    }
+
+    const licenseBackFileError = validateImageFile(selectedDriverLicenseBackFile, 'Driver\'s license back image');
+    if (licenseBackFileError) {
+      setError(licenseBackFileError);
       return;
     }
 
@@ -174,9 +463,37 @@ export default function DriverRegistrationPage() {
       return;
     }
 
+    const selectedSelfieFile = selfieFile;
+    if (!selectedSelfieFile) {
+      setError('Selfie verification photo is required');
+      return;
+    }
+
+    const selfieFileError = validateImageFile(selectedSelfieFile, 'Selfie verification photo');
+    if (selfieFileError) {
+      setError(selfieFileError);
+      return;
+    }
+
     if (!agreeToTerms) {
       setError('Please agree to the Terms of Service');
       return;
+    }
+
+    let finalFaceMatchScore = faceMatchScore;
+    let finalFaceMatchStatus = faceMatchStatus;
+    let finalFaceMatchMessage = faceMatchMessage;
+    if (finalFaceMatchStatus === 'pending' || finalFaceMatchStatus === 'checking') {
+      const matchResult = await checkFaceMatch(selectedDriverLicenseFrontFile, selectedSelfieFile);
+      finalFaceMatchScore = matchResult?.score ?? null;
+      finalFaceMatchStatus = matchResult?.status ?? 'review';
+      finalFaceMatchMessage = matchResult
+        ? matchResult.status === 'passed'
+          ? `Face match passed at ${matchResult.score}%.`
+          : matchResult.status === 'review'
+            ? `Face match is ${matchResult.score}%. Admin should review this manually.`
+            : `Face match is only ${matchResult.score}%. Please check the documents carefully.`
+        : faceMatchMessage || 'Face match could not be confirmed. Admin must review manually.';
     }
 
     setIsLoading(true);
@@ -192,13 +509,21 @@ export default function DriverRegistrationPage() {
       console.log('User created:', user.uid);
 
       // Step 2: Upload documents to Cloudinary
-      console.log('Uploading driver license to Cloudinary...');
-      const licenseUrl = await uploadToCloudinary(selectedDriverLicenseFile, `pasakay/drivers/${user.uid}`);
-      console.log('License uploaded:', licenseUrl);
+      console.log('Uploading driver license front to Cloudinary...');
+      const licenseFrontUrl = await uploadToCloudinary(selectedDriverLicenseFrontFile, `pasakay/drivers/${user.uid}`);
+      console.log('License front uploaded:', licenseFrontUrl);
+
+      console.log('Uploading driver license back to Cloudinary...');
+      const licenseBackUrl = await uploadToCloudinary(selectedDriverLicenseBackFile, `pasakay/drivers/${user.uid}`);
+      console.log('License back uploaded:', licenseBackUrl);
 
       console.log('Uploading OR/CR to Cloudinary...');
       const orCrUrl = await uploadToCloudinary(selectedOrCrFile, `pasakay/drivers/${user.uid}`);
       console.log('OR/CR uploaded:', orCrUrl);
+
+      console.log('Uploading selfie verification photo to Cloudinary...');
+      const selfieUrl = await uploadToCloudinary(selectedSelfieFile, `pasakay/drivers/${user.uid}`);
+      console.log('Selfie uploaded:', selfieUrl);
 
       const now = new Date().toISOString();
 
@@ -214,9 +539,16 @@ export default function DriverRegistrationPage() {
         vehicleNumber,
         vehicleModel,
         vehicleLicense,
-        driversLicenseUrl: licenseUrl,
-        driverLicenseUrl: licenseUrl,
+        driversLicenseUrl: licenseFrontUrl,
+        driverLicenseUrl: licenseFrontUrl,
+        driversLicenseFrontUrl: licenseFrontUrl,
+        driversLicenseBackUrl: licenseBackUrl,
         orCrUrl: orCrUrl,
+        driverSelfieUrl: selfieUrl,
+        faceMatchScore: finalFaceMatchScore,
+        faceMatchStatus: finalFaceMatchStatus,
+        faceMatchMessage: finalFaceMatchMessage,
+        faceVerifiedAt: finalFaceMatchStatus === 'pending' || finalFaceMatchStatus === 'checking' ? null : now,
         isActive: true,
         isApproved: false,
         isOnline: false,
@@ -261,7 +593,7 @@ export default function DriverRegistrationPage() {
       try {
         await createAdminNotification({
           title: 'New Driver Registration',
-          message: `${name} has registered as a driver and needs verification.`,
+          message: `${name} has registered as a driver and needs verification. Face match: ${finalFaceMatchScore === null ? 'manual review' : `${finalFaceMatchScore}%`}.`,
           type: 'driverRegistration',
           relatedId: user.uid,
         });
@@ -362,6 +694,73 @@ export default function DriverRegistrationPage() {
       ref={pageRef}
       className="partner-form"
     >
+      {cameraOpen && (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/65 px-3 py-6 sm:py-10">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-[#e5e2d8] px-5 py-4">
+              <div>
+                <h2 className="text-2xl font-bold text-[#18211f]">Face verification</h2>
+                <p className="mt-1 text-sm text-[#66736f]">Center your face inside the oval.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeSelfieCamera}
+                className="rounded-full p-2 text-[#66736f] transition-colors hover:bg-[#f5f4ef] hover:text-[#18211f]"
+                aria-label="Close face verification"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl border border-[#d9d4c6] bg-[#18211f] shadow-sm">
+                <video
+                  ref={selfieVideoRef}
+                  className="h-full w-full object-cover"
+                  style={{ transform: 'scaleX(-1)' }}
+                  autoPlay
+                  playsInline
+                  muted
+                />
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div className="h-[66%] w-[58%] rounded-[50%] border-[4px] border-white/95 shadow-[0_0_0_9999px_rgba(0,0,0,0.12)]" />
+                </div>
+                <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-4 py-2 text-xs font-bold text-white">
+                  Align your face inside the oval
+                </div>
+              </div>
+
+              {cameraError ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {cameraError}
+                </p>
+              ) : (
+                <p className="text-center text-sm font-semibold text-[#66736f]">
+                  {cameraReady ? 'Camera ready. Center your face inside the oval.' : 'Starting camera...'}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={closeSelfieCamera}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-sm font-bold text-[#18211f] hover:bg-[#faf9f5]"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={captureSelfie}
+                disabled={!cameraReady || cameraStarting}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1f6f68] px-4 py-3 text-sm font-bold text-white hover:bg-[#174c49] disabled:cursor-not-allowed disabled:bg-[#c9c7ce] disabled:text-[#74717a]"
+              >
+                <Camera className="h-4 w-4" />
+                {cameraReady ? 'Capture Selfie' : 'Starting...'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="partner-form-header sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -514,25 +913,25 @@ export default function DriverRegistrationPage() {
             <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
               <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">Required Documents</h3>
               <div className="grid md:grid-cols-2 gap-5">
-                {/* Driver's License */}
+                {/* Driver's License Front */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
-                    Driver&apos;s License Image <span className="text-[#b42318]">*</span>
+                    Driver&apos;s License Front <span className="text-[#b42318]">*</span>
                   </label>
                   <div className="border border-dashed border-[#cfc9bb] rounded-xl bg-white p-5 text-center transition-all duration-300 hover:border-[#1f6f68] hover:bg-[#1f6f68]/5 cursor-pointer shadow-sm">
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => handleFileChange(e, 'license')}
+                      onChange={(e) => handleFileChange(e, 'licenseFront')}
                       className="hidden"
-                      id="license-upload"
+                      id="license-front-upload"
                     />
-                    <label htmlFor="license-upload" className="cursor-pointer block w-full">
-                      {driverLicensePreview ? (
+                    <label htmlFor="license-front-upload" className="cursor-pointer block w-full">
+                      {driverLicenseFrontPreview ? (
                         <div className="w-full">
                           <img
-                            src={driverLicensePreview}
-                            alt="License preview"
+                            src={driverLicenseFrontPreview}
+                            alt="License front preview"
                             className="w-full h-36 object-cover rounded-lg mb-3 shadow-sm border border-[#e5e2d8]"
                           />
                           <p className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-1">
@@ -542,7 +941,43 @@ export default function DriverRegistrationPage() {
                       ) : (
                         <div className="py-4">
                           <Upload className="w-8 h-8 text-[#66736f] mx-auto mb-2" />
-                          <p className="text-xs font-bold text-[#18211f]">Click to upload License Photo</p>
+                          <p className="text-xs font-bold text-[#18211f]">Click to upload License Front</p>
+                          <p className="text-[10px] text-[#66736f] mt-1">PNG, JPG up to 10MB</p>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                {/* Driver's License Back */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Driver&apos;s License Back <span className="text-[#b42318]">*</span>
+                  </label>
+                  <div className="border border-dashed border-[#cfc9bb] rounded-xl bg-white p-5 text-center transition-all duration-300 hover:border-[#1f6f68] hover:bg-[#1f6f68]/5 cursor-pointer shadow-sm">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'licenseBack')}
+                      className="hidden"
+                      id="license-back-upload"
+                    />
+                    <label htmlFor="license-back-upload" className="cursor-pointer block w-full">
+                      {driverLicenseBackPreview ? (
+                        <div className="w-full">
+                          <img
+                            src={driverLicenseBackPreview}
+                            alt="License back preview"
+                            className="w-full h-36 object-cover rounded-lg mb-3 shadow-sm border border-[#e5e2d8]"
+                          />
+                          <p className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-1">
+                            <CheckCircle className="w-3.5 h-3.5" /> Checked (Click to Replace)
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="py-4">
+                          <Upload className="w-8 h-8 text-[#66736f] mx-auto mb-2" />
+                          <p className="text-xs font-bold text-[#18211f]">Click to upload License Back</p>
                           <p className="text-[10px] text-[#66736f] mt-1">PNG, JPG up to 10MB</p>
                         </div>
                       )}
@@ -585,7 +1020,82 @@ export default function DriverRegistrationPage() {
                     </label>
                   </div>
                 </div>
+
+                {/* Selfie verification */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                    Selfie Verification Photo <span className="text-[#b42318]">*</span>
+                  </label>
+                  <div className="border border-dashed border-[#cfc9bb] rounded-xl bg-white p-5 text-center shadow-sm">
+                    {selfiePreview ? (
+                      <div className="w-full">
+                        <img
+                          src={selfiePreview}
+                          alt="Selfie verification preview"
+                          className="mx-auto h-48 w-48 rounded-xl border border-[#e5e2d8] object-cover shadow-sm"
+                        />
+                        <p className="mt-3 text-xs font-bold text-emerald-700 flex items-center justify-center gap-1">
+                          <CheckCircle className="w-3.5 h-3.5" /> Captured
+                        </p>
+                        <button
+                          type="button"
+                          onClick={startSelfieCamera}
+                          className="mt-3 rounded-lg border border-[#d9d4c6] bg-white px-4 py-2 text-xs font-bold text-[#18211f] hover:border-[#1f6f68]/40 hover:bg-[#1f6f68]/5"
+                        >
+                          Retake Selfie
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="py-4">
+                        <button
+                          type="button"
+                          onClick={startSelfieCamera}
+                          className="mx-auto flex items-center justify-center gap-2 rounded-lg bg-[#1f6f68] px-4 py-3 text-xs font-bold text-white hover:bg-[#174c49]"
+                        >
+                          <Camera className="w-4 h-4" />
+                          Open Camera
+                        </button>
+                        <p className="mt-3 text-[10px] text-[#66736f]">
+                          Use the front camera. A large face guide will open before capture.
+                        </p>
+                      </div>
+                    )}
+                    {!cameraOpen && cameraError && (
+                      <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        {cameraError}
+                      </p>
+                    )}
+                    {(faceMatchLoading || faceMatchMessage || faceMatchScore !== null) && (
+                      <div
+                        className={`mt-3 rounded-lg border px-3 py-2 text-left text-xs ${
+                          faceMatchStatus === 'passed'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                            : faceMatchStatus === 'failed'
+                              ? 'border-red-200 bg-red-50 text-red-700'
+                              : 'border-amber-200 bg-amber-50 text-amber-900'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-bold">Face Match</span>
+                          <span className="text-sm font-black">
+                            {faceMatchLoading || faceMatchStatus === 'checking'
+                              ? 'Checking...'
+                              : faceMatchScore === null
+                                ? 'Manual Review'
+                                : `${faceMatchScore}%`}
+                          </span>
+                        </div>
+                        {faceMatchMessage && (
+                          <p className="mt-1 leading-relaxed">{faceMatchMessage}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
+              <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900">
+                Your selfie is used only for identity review against your driver&apos;s license. Admin approval still requires manual review.
+              </p>
             </div>
 
             {/* Password */}

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ref, onValue, update, get, off } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { User, Driver } from '@/types';
-import { Search, CheckCircle, XCircle, Eye, Clock, FileText } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Eye, Clock, ShieldCheck } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { createAdminNotification } from '@/lib/adminNotifications';
 import { getStoredAdminSession } from '@/lib/adminSession';
@@ -27,6 +27,10 @@ export default function DriverVerificationPage() {
   const [processing, setProcessing] = useState(false);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
   const [imageViewerTitle, setImageViewerTitle] = useState('');
+  const [faceReviewDriver, setFaceReviewDriver] = useState<DriverWithUser | null>(null);
+  const [faceScoreInput, setFaceScoreInput] = useState('');
+  const [faceStatusInput, setFaceStatusInput] = useState<'passed' | 'review' | 'failed'>('review');
+  const [savingFaceReview, setSavingFaceReview] = useState(false);
 
   useEffect(() => {
     // Check if admin is logged in
@@ -74,7 +78,15 @@ export default function DriverVerificationPage() {
               verificationStatus: driver.verificationStatus || driver.status || 'pending',
               // Fallback keys to avoid missing documents from older records
               driversLicenseUrl: driver.driversLicenseUrl || driver.driverLicenseUrl || driver.licenseUrl || '',
+              driversLicenseFrontUrl: driver.driversLicenseFrontUrl || driver.driversLicenseUrl || driver.driverLicenseUrl || driver.licenseUrl || '',
+              driversLicenseBackUrl: driver.driversLicenseBackUrl || driver.driverLicenseBackUrl || '',
               orCrUrl: driver.orCrUrl || driver.vehicleOrCrUrl || driver.orcrUrl || '',
+              driverSelfieUrl: driver.driverSelfieUrl || driver.selfieUrl || driver.facePhotoUrl || '',
+              faceMatchScore: driver.faceMatchScore,
+              faceMatchStatus: driver.faceMatchStatus || (driver.driverSelfieUrl || driver.selfieUrl ? 'pending' : ''),
+              faceMatchMessage: driver.faceMatchMessage || '',
+              faceVerifiedAt: driver.faceVerifiedAt,
+              faceVerifiedBy: driver.faceVerifiedBy,
               validIdUrl: driver.validIdUrl || driver.validId || driver.idUrl || '',
             });
           });
@@ -247,6 +259,48 @@ export default function DriverVerificationPage() {
     setImageViewerTitle('');
   };
 
+  const openFaceReviewModal = (driver: DriverWithUser) => {
+    setFaceReviewDriver(driver);
+    setFaceScoreInput(
+      typeof driver.faceMatchScore === 'number' ? String(Math.round(driver.faceMatchScore)) : ''
+    );
+    const status = (driver.faceMatchStatus || '').toLowerCase();
+    setFaceStatusInput(status === 'passed' || status === 'failed' ? status : 'review');
+  };
+
+  const saveFaceReview = async () => {
+    if (!faceReviewDriver) return;
+    const score = Number(faceScoreInput);
+    if (!Number.isFinite(score) || score < 0 || score > 100) {
+      alert('Enter a face match score from 0 to 100.');
+      return;
+    }
+
+    setSavingFaceReview(true);
+    try {
+      const adminUser = getStoredAdminSession();
+      if (!adminUser) {
+        router.push('/pasakay/login?expired=1');
+        return;
+      }
+      const now = Date.now();
+      await update(ref(database), {
+        [`drivers/${faceReviewDriver.driverId}/faceMatchScore`]: score,
+        [`drivers/${faceReviewDriver.driverId}/faceMatchStatus`]: faceStatusInput,
+        [`drivers/${faceReviewDriver.driverId}/faceVerifiedAt`]: now,
+        [`drivers/${faceReviewDriver.driverId}/faceVerifiedBy`]: adminUser.userId,
+      });
+      setFaceReviewDriver(null);
+      setFaceScoreInput('');
+      setFaceStatusInput('review');
+    } catch (error) {
+      console.error('Error saving face review:', error);
+      alert('Failed to save face review.');
+    } finally {
+      setSavingFaceReview(false);
+    }
+  };
+
   const formatDate = (timestamp: number) => {
     if (!timestamp) return 'N/A';
     return new Date(timestamp).toLocaleDateString('en-PH', {
@@ -267,6 +321,29 @@ export default function DriverVerificationPage() {
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badges[status] || 'bg-gray-100 text-gray-800'}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
+  };
+
+  const getFaceStatusBadge = (driver: DriverWithUser) => {
+    const status = (driver.faceMatchStatus || '').toLowerCase();
+    const score = typeof driver.faceMatchScore === 'number'
+      ? `${Math.round(driver.faceMatchScore)}%`
+      : 'Manual review';
+    const classes: Record<string, string> = {
+      passed: 'bg-green-100 text-green-800',
+      review: 'bg-yellow-100 text-yellow-800',
+      failed: 'bg-red-100 text-red-800',
+      pending: 'bg-blue-100 text-blue-800',
+    };
+    const label = status
+      ? status.charAt(0).toUpperCase() + status.slice(1)
+      : 'Not checked';
+
+    return (
+      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${classes[status] || 'bg-gray-100 text-gray-700'}`}>
+        <ShieldCheck className="h-3 w-3" />
+        {label} · {score}
       </span>
     );
   };
@@ -415,11 +492,18 @@ export default function DriverVerificationPage() {
                       <td className="py-4 px-6">
                         <div className="flex flex-wrap gap-2">
                           <button
-                            onClick={() => viewDocument(driver.driversLicenseUrl || '', "Driver's License")}
+                            onClick={() => viewDocument(driver.driversLicenseFrontUrl || driver.driversLicenseUrl || '', "Driver's License Front")}
                             className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-200 flex items-center space-x-1"
                           >
                             <Eye className="w-3 h-3" />
-                            <span>License</span>
+                            <span>License Front</span>
+                          </button>
+                          <button
+                            onClick={() => viewDocument(driver.driversLicenseBackUrl || '', "Driver's License Back")}
+                            className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-200 flex items-center space-x-1"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>License Back</span>
                           </button>
                           <button
                             onClick={() => viewDocument(driver.orCrUrl || '', 'OR/CR')}
@@ -429,11 +513,21 @@ export default function DriverVerificationPage() {
                             <span>OR/CR</span>
                           </button>
                           <button
-                            onClick={() => viewDocument(driver.validIdUrl || '', 'Valid ID')}
+                            onClick={() => viewDocument(driver.driverSelfieUrl || '', 'Selfie Verification')}
                             className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold hover:bg-purple-200 flex items-center space-x-1"
                           >
                             <Eye className="w-3 h-3" />
-                            <span>ID</span>
+                            <span>Selfie</span>
+                          </button>
+                        </div>
+                        <div className="mt-2">
+                          {getFaceStatusBadge(driver)}
+                          <button
+                            onClick={() => openFaceReviewModal(driver)}
+                            className="ml-2 inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-200"
+                          >
+                            <ShieldCheck className="h-3 w-3" />
+                            Review Face
                           </button>
                         </div>
                       </td>
@@ -564,6 +658,82 @@ export default function DriverVerificationPage() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Face Review Modal */}
+      {faceReviewDriver && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Face Verification Review</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Compare the selfie with the driver license photos, then record the match result.
+            </p>
+            <div className="mb-4 grid grid-cols-3 gap-2">
+              <button
+                onClick={() => viewDocument(faceReviewDriver.driversLicenseFrontUrl || faceReviewDriver.driversLicenseUrl || '', "Driver's License Front")}
+                className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+              >
+                View Front
+              </button>
+              <button
+                onClick={() => viewDocument(faceReviewDriver.driversLicenseBackUrl || '', "Driver's License Back")}
+                className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+              >
+                View Back
+              </button>
+              <button
+                onClick={() => viewDocument(faceReviewDriver.driverSelfieUrl || '', 'Selfie Verification')}
+                className="rounded-lg bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+              >
+                View Selfie
+              </button>
+            </div>
+            <label className="mb-2 block text-sm font-semibold text-gray-700">
+              Match Score (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={faceScoreInput}
+              onChange={(event) => setFaceScoreInput(event.target.value)}
+              placeholder="e.g. 92"
+              className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+            <label className="mb-2 block text-sm font-semibold text-gray-700">
+              Result
+            </label>
+            <select
+              value={faceStatusInput}
+              onChange={(event) => setFaceStatusInput(event.target.value as any)}
+              className="mb-5 w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              <option value="passed">Passed</option>
+              <option value="review">Needs Review</option>
+              <option value="failed">Failed</option>
+            </select>
+            <div className="flex gap-3">
+              <button
+                onClick={saveFaceReview}
+                disabled={savingFaceReview}
+                className="flex-1 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {savingFaceReview ? 'Saving...' : 'Save Review'}
+              </button>
+              <button
+                onClick={() => {
+                  setFaceReviewDriver(null);
+                  setFaceScoreInput('');
+                  setFaceStatusInput('review');
+                }}
+                disabled={savingFaceReview}
+                className="flex-1 rounded-lg bg-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-400 disabled:opacity-50"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

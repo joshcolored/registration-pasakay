@@ -30,6 +30,14 @@ export interface Driver {
   profileImageUrl?: string;
   profileImage?: string; // Flutter uses 'profileImage'
   driversLicenseUrl?: string;
+  driversLicenseFrontUrl?: string;
+  driversLicenseBackUrl?: string;
+  driverSelfieUrl?: string;
+  faceMatchScore?: number;
+  faceMatchStatus?: 'pending' | 'passed' | 'review' | 'failed' | string;
+  faceMatchMessage?: string;
+  faceVerifiedAt?: number | string;
+  faceVerifiedBy?: string;
   orCrUrl?: string; // OR/CR document URL
   validIdUrl?: string;
   vehicleNumber?: string;
