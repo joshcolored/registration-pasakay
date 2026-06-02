@@ -39,6 +39,15 @@ export interface Driver {
   faceVerifiedAt?: number | string;
   faceVerifiedBy?: string;
   orCrUrl?: string; // OR/CR document URL
+  orCrOcrText?: string;
+  orCrOcrStatus?: 'pending' | 'checking' | 'matched' | 'review' | 'mismatch' | string;
+  orCrOcrMessage?: string;
+  orCrExtractedFields?: {
+    plateCandidates?: string[];
+    vehicleModelMatched?: boolean;
+    vehicleNumberMatched?: boolean;
+  };
+  orCrOcrCheckedAt?: number | string;
   validIdUrl?: string;
   vehicleNumber?: string;
   vehicleModel?: string;

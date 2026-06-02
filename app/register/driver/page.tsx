@@ -39,6 +39,13 @@ const validateImageFile = (file: File | null, label: string) => {
 };
 
 type FaceMatchStatus = 'pending' | 'checking' | 'passed' | 'review' | 'failed';
+type OrCrOcrStatus = 'pending' | 'checking' | 'matched' | 'review' | 'mismatch';
+
+type OrCrExtractedFields = {
+  plateCandidates: string[];
+  vehicleModelMatched: boolean;
+  vehicleNumberMatched: boolean;
+};
 
 let faceApiLoadPromise: Promise<any> | null = null;
 
@@ -92,6 +99,66 @@ const getFaceMatchStatusFromScore = (score: number): FaceMatchStatus => {
   return 'failed';
 };
 
+const normalizeOcrText = (text: string) =>
+  text
+    .toUpperCase()
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const normalizeLookupValue = (value: string) =>
+  value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+
+const extractPlateCandidates = (text: string) => {
+  const matches = text.match(/\b[A-Z]{2,3}[-\s]?\d{3,4}\b|\b\d{3}[-\s]?[A-Z]{2,3}\b|\b[A-Z0-9]{6,12}\b/g) || [];
+  return Array.from(new Set(matches.map((match) => normalizeLookupValue(match)).filter((match) => match.length >= 5)));
+};
+
+const analyzeOrCrText = (
+  text: string,
+  values: { vehicleLicense: string; vehicleModel: string; vehicleNumber: string }
+) => {
+  const normalizedText = normalizeOcrText(text);
+  const compactText = normalizeLookupValue(normalizedText);
+  const plateValue = normalizeLookupValue(values.vehicleLicense);
+  const modelValue = normalizeLookupValue(values.vehicleModel);
+  const numberValue = normalizeLookupValue(values.vehicleNumber);
+  const plateCandidates = extractPlateCandidates(normalizedText);
+  const plateMatched = Boolean(plateValue && compactText.includes(plateValue));
+  const vehicleModelMatched = Boolean(modelValue && compactText.includes(modelValue));
+  const vehicleNumberMatched = Boolean(numberValue && compactText.includes(numberValue));
+  const matchedCount = [plateMatched, vehicleModelMatched, vehicleNumberMatched].filter(Boolean).length;
+  const status: OrCrOcrStatus = !normalizedText
+    ? 'review'
+    : plateMatched || matchedCount >= 2
+      ? 'matched'
+      : matchedCount === 1 || plateCandidates.length > 0
+        ? 'review'
+        : 'mismatch';
+  const message = status === 'matched'
+    ? 'OR/CR text appears to match the vehicle details.'
+    : status === 'review'
+      ? 'OR/CR text needs admin review. Some vehicle details could not be confirmed.'
+      : 'OR/CR text did not match the typed vehicle details.';
+
+  return {
+    text,
+    normalizedText,
+    extractedFields: {
+      plateCandidates,
+      vehicleModelMatched,
+      vehicleNumberMatched,
+    } as OrCrExtractedFields,
+    plateMatched,
+    status,
+    message,
+  };
+};
+
+type OrCrOcrResult = ReturnType<typeof analyzeOrCrText>;
+
 export default function DriverRegistrationPage() {
   const router = useRouter();
   const pageRef = useRef<HTMLDivElement | null>(null);
@@ -135,6 +202,12 @@ export default function DriverRegistrationPage() {
   const [faceMatchStatus, setFaceMatchStatus] = useState<FaceMatchStatus>('pending');
   const [faceMatchMessage, setFaceMatchMessage] = useState('');
   const [faceMatchLoading, setFaceMatchLoading] = useState(false);
+  const [orCrOcrText, setOrCrOcrText] = useState('');
+  const [orCrOcrStatus, setOrCrOcrStatus] = useState<OrCrOcrStatus>('pending');
+  const [orCrOcrMessage, setOrCrOcrMessage] = useState('');
+  const [orCrOcrFields, setOrCrOcrFields] = useState<OrCrExtractedFields | null>(null);
+  const [orCrOcrLoading, setOrCrOcrLoading] = useState(false);
+  const [orCrOcrProgress, setOrCrOcrProgress] = useState(0);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -151,6 +224,12 @@ export default function DriverRegistrationPage() {
         setFaceMatchScore(null);
         setFaceMatchStatus('pending');
         setFaceMatchMessage('');
+      } else if (type === 'orcr') {
+        setOrCrOcrText('');
+        setOrCrOcrStatus('pending');
+        setOrCrOcrMessage('');
+        setOrCrOcrFields(null);
+        setOrCrOcrProgress(0);
       }
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -166,6 +245,7 @@ export default function DriverRegistrationPage() {
         } else {
           setOrCrFile(file);
           setOrCrPreview(reader.result as string);
+          void runOrCrOcr(file);
         }
       };
       reader.readAsDataURL(file);
@@ -187,6 +267,53 @@ export default function DriverRegistrationPage() {
 
   const closeSelfieCamera = () => {
     stopSelfieCamera();
+  };
+
+  const runOrCrOcr = async (file = orCrFile) => {
+    if (!file) return null;
+
+    setOrCrOcrLoading(true);
+    setOrCrOcrStatus('checking');
+    setOrCrOcrMessage('Reading OR/CR document...');
+    setOrCrOcrProgress(0);
+
+    try {
+      const { createWorker, PSM } = await import('tesseract.js');
+      const worker = await createWorker('eng', 1, {
+        logger: (event: any) => {
+          if (event.status === 'recognizing text' && typeof event.progress === 'number') {
+            setOrCrOcrProgress(Math.round(event.progress * 100));
+          }
+        },
+      });
+
+      await worker.setParameters({
+        tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+      });
+
+      const { data } = await worker.recognize(file);
+      await worker.terminate();
+
+      const result = analyzeOrCrText(data.text || '', {
+        vehicleLicense: formData.vehicleLicense,
+        vehicleModel: formData.vehicleModel,
+        vehicleNumber: formData.vehicleNumber,
+      });
+
+      setOrCrOcrText(result.text);
+      setOrCrOcrStatus(result.status);
+      setOrCrOcrMessage(result.message);
+      setOrCrOcrFields(result.extractedFields);
+      setOrCrOcrProgress(100);
+      return result;
+    } catch (error) {
+      console.error('OR/CR OCR error:', error);
+      setOrCrOcrStatus('review');
+      setOrCrOcrMessage('OR/CR OCR could not run on this device. Admin must review manually.');
+      return null;
+    } finally {
+      setOrCrOcrLoading(false);
+    }
   };
 
   const startSelfieCamera = async () => {
@@ -367,6 +494,19 @@ export default function DriverRegistrationPage() {
     };
   }, [selfiePreview]);
 
+  useEffect(() => {
+    if (!orCrOcrText || orCrOcrLoading) return;
+
+    const result = analyzeOrCrText(orCrOcrText, {
+      vehicleLicense: formData.vehicleLicense,
+      vehicleModel: formData.vehicleModel,
+      vehicleNumber: formData.vehicleNumber,
+    });
+    setOrCrOcrStatus(result.status);
+    setOrCrOcrMessage(result.message);
+    setOrCrOcrFields(result.extractedFields);
+  }, [formData.vehicleLicense, formData.vehicleModel, formData.vehicleNumber, orCrOcrText, orCrOcrLoading]);
+
   // Upload file to Cloudinary
   const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
     const formData = new FormData();
@@ -496,6 +636,27 @@ export default function DriverRegistrationPage() {
         : faceMatchMessage || 'Face match could not be confirmed. Admin must review manually.';
     }
 
+    let finalOrCrOcrText = orCrOcrText;
+    let finalOrCrOcrStatus = orCrOcrStatus;
+    let finalOrCrOcrMessage = orCrOcrMessage;
+    let finalOrCrOcrFields = orCrOcrFields;
+    if (!finalOrCrOcrText && !orCrOcrLoading) {
+      const ocrResult = await runOrCrOcr(selectedOrCrFile);
+      finalOrCrOcrText = ocrResult?.text || '';
+      finalOrCrOcrStatus = ocrResult?.status || 'review';
+      finalOrCrOcrMessage = ocrResult?.message || 'OR/CR OCR could not be confirmed. Admin must review manually.';
+      finalOrCrOcrFields = ocrResult?.extractedFields || null;
+    } else if (finalOrCrOcrText) {
+      const ocrResult = analyzeOrCrText(finalOrCrOcrText, {
+        vehicleLicense,
+        vehicleModel,
+        vehicleNumber,
+      });
+      finalOrCrOcrStatus = ocrResult.status;
+      finalOrCrOcrMessage = ocrResult.message;
+      finalOrCrOcrFields = ocrResult.extractedFields;
+    }
+
     setIsLoading(true);
     let createdUser: FirebaseUser | null = null;
     let registrationSaved = false;
@@ -544,6 +705,11 @@ export default function DriverRegistrationPage() {
         driversLicenseFrontUrl: licenseFrontUrl,
         driversLicenseBackUrl: licenseBackUrl,
         orCrUrl: orCrUrl,
+        orCrOcrText: finalOrCrOcrText,
+        orCrOcrStatus: finalOrCrOcrStatus,
+        orCrOcrMessage: finalOrCrOcrMessage,
+        orCrExtractedFields: finalOrCrOcrFields,
+        orCrOcrCheckedAt: finalOrCrOcrStatus === 'pending' || finalOrCrOcrStatus === 'checking' ? null : now,
         driverSelfieUrl: selfieUrl,
         faceMatchScore: finalFaceMatchScore,
         faceMatchStatus: finalFaceMatchStatus,
@@ -973,6 +1139,9 @@ export default function DriverRegistrationPage() {
                           <p className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-1">
                             <CheckCircle className="w-3.5 h-3.5" /> Checked (Click to Replace)
                           </p>
+                          <p className="mt-2 text-[10px] font-semibold text-[#66736f]">
+                            {orCrOcrLoading ? `Reading OR/CR text... ${orCrOcrProgress}%` : 'OR/CR uploaded'}
+                          </p>
                         </div>
                       ) : (
                         <div className="py-4">
@@ -983,6 +1152,38 @@ export default function DriverRegistrationPage() {
                       )}
                     </label>
                   </div>
+                  {(orCrOcrLoading || orCrOcrMessage || orCrOcrText) && (
+                    <div
+                      className={`mt-3 rounded-lg border px-3 py-2 text-left text-xs ${
+                        orCrOcrStatus === 'matched'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                          : orCrOcrStatus === 'mismatch'
+                            ? 'border-red-200 bg-red-50 text-red-700'
+                            : 'border-amber-200 bg-amber-50 text-amber-900'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-bold">OR/CR OCR</span>
+                        <span className="font-black">
+                          {orCrOcrLoading || orCrOcrStatus === 'checking'
+                            ? `${orCrOcrProgress}%`
+                            : orCrOcrStatus === 'matched'
+                              ? 'Matched'
+                              : orCrOcrStatus === 'mismatch'
+                                ? 'Mismatch'
+                                : 'Review'}
+                        </span>
+                      </div>
+                      {orCrOcrMessage && (
+                        <p className="mt-1 leading-relaxed">{orCrOcrMessage}</p>
+                      )}
+                      {orCrOcrFields?.plateCandidates?.length ? (
+                        <p className="mt-1 text-[10px]">
+                          Detected possible plate/MV: {orCrOcrFields.plateCandidates.slice(0, 3).join(', ')}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
                 {/* OR/CR */}

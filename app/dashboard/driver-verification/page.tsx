@@ -81,6 +81,11 @@ export default function DriverVerificationPage() {
               driversLicenseFrontUrl: driver.driversLicenseFrontUrl || driver.driversLicenseUrl || driver.driverLicenseUrl || driver.licenseUrl || '',
               driversLicenseBackUrl: driver.driversLicenseBackUrl || driver.driverLicenseBackUrl || '',
               orCrUrl: driver.orCrUrl || driver.vehicleOrCrUrl || driver.orcrUrl || '',
+              orCrOcrText: driver.orCrOcrText || '',
+              orCrOcrStatus: driver.orCrOcrStatus || '',
+              orCrOcrMessage: driver.orCrOcrMessage || '',
+              orCrExtractedFields: driver.orCrExtractedFields || null,
+              orCrOcrCheckedAt: driver.orCrOcrCheckedAt,
               driverSelfieUrl: driver.driverSelfieUrl || driver.selfieUrl || driver.facePhotoUrl || '',
               faceMatchScore: driver.faceMatchScore,
               faceMatchStatus: driver.faceMatchStatus || (driver.driverSelfieUrl || driver.selfieUrl ? 'pending' : ''),
@@ -348,6 +353,26 @@ export default function DriverVerificationPage() {
     );
   };
 
+  const getOrCrOcrBadge = (driver: DriverWithUser) => {
+    const status = (driver.orCrOcrStatus || '').toLowerCase();
+    const classes: Record<string, string> = {
+      matched: 'bg-green-100 text-green-800',
+      review: 'bg-yellow-100 text-yellow-800',
+      mismatch: 'bg-red-100 text-red-800',
+      pending: 'bg-blue-100 text-blue-800',
+      checking: 'bg-blue-100 text-blue-800',
+    };
+    const label = status
+      ? status.charAt(0).toUpperCase() + status.slice(1)
+      : 'Not checked';
+
+    return (
+      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${classes[status] || 'bg-gray-100 text-gray-700'}`}>
+        OR/CR OCR - {label}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -529,6 +554,25 @@ export default function DriverVerificationPage() {
                             <ShieldCheck className="h-3 w-3" />
                             Review Face
                           </button>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {getOrCrOcrBadge(driver)}
+                          {driver.orCrOcrMessage && (
+                            <p className="text-xs text-gray-600">{driver.orCrOcrMessage}</p>
+                          )}
+                          {driver.orCrExtractedFields?.plateCandidates?.length ? (
+                            <p className="text-xs text-gray-500">
+                              Possible plate/MV: {driver.orCrExtractedFields.plateCandidates.slice(0, 3).join(', ')}
+                            </p>
+                          ) : null}
+                          {driver.orCrOcrText && (
+                            <details className="text-xs text-gray-500">
+                              <summary className="cursor-pointer font-semibold text-gray-700">View OCR text</summary>
+                              <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-[11px]">
+                                {driver.orCrOcrText}
+                              </pre>
+                            </details>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-6">
