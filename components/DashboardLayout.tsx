@@ -30,6 +30,11 @@ import {
   getAdminSessionTimeRemaining,
   getStoredAdminSession,
 } from '@/lib/adminSession';
+import {
+  getAdminNotificationRoute,
+  isAdminNotificationTarget,
+  isAdminNotificationType,
+} from '@/lib/adminNotificationRoutes';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -90,8 +95,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [adminName, setAdminName] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoLoaded, setLogoLoaded] = useState(false);
+  const [sidebarCounts, setSidebarCounts] = useState<Record<string, number>>({});
 
   const menuItems = useMemo(() => navGroups.flatMap((group) => group.items), []);
+  const badgeCounts = sidebarCounts;
   const currentPage = menuItems.find((item) => item.href === pathname)?.name || 'Dashboard';
   const currentDescription = pageDescriptions[pathname] || 'Pasakay operations';
   const adminInitial = (adminName || 'A').charAt(0).toUpperCase();
@@ -157,6 +164,42 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       unsubscribe();
     };
   }, [router]);
+
+  useEffect(() => {
+    const adminUser = getStoredAdminSession();
+    if (!adminUser) return;
+
+    const notificationsRef = ref(database, 'notifications');
+    const unsubscribe = onValue(
+      notificationsRef,
+      (snapshot) => {
+        const nextCounts: Record<string, number> = {};
+        let totalUnread = 0;
+        const notifications = snapshot.val() || {};
+
+        Object.values(notifications as Record<string, any>).forEach((notification) => {
+          if (notification?.isRead === true) return;
+          if (!isAdminNotificationTarget(notification, adminUser.userId)) return;
+          if (!isAdminNotificationType(notification)) return;
+
+          const route = getAdminNotificationRoute(notification);
+          if (!route) return;
+
+          totalUnread += 1;
+          nextCounts[route] = (nextCounts[route] || 0) + 1;
+        });
+
+        if (totalUnread > 0) {
+          nextCounts['/dashboard'] = totalUnread;
+        }
+
+        setSidebarCounts(nextCounts);
+      },
+      (error) => console.error('Error loading sidebar notification badges:', error)
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -248,6 +291,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {group.items.map((item) => {
                       const Icon = item.icon;
                       const isActive = pathname === item.href;
+                      const badgeCount = badgeCounts[item.href] || 0;
+                      const badgeLabel = badgeCount > 99 ? '99+' : String(badgeCount);
 
                       return (
                         <li key={item.href}>
@@ -265,6 +310,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                           >
                             <Icon className="h-4 w-4 shrink-0" />
                             <span className="truncate font-semibold">{item.name}</span>
+                            {badgeCount > 0 && (
+                              <span
+                                className={`
+                                  ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-black leading-none
+                                  ${
+                                    isActive
+                                      ? 'bg-white text-[#1f6f68]'
+                                      : 'bg-[#b42318] text-white shadow-sm'
+                                  }
+                                `}
+                                aria-label={`${badgeCount} updates`}
+                              >
+                                {badgeLabel}
+                              </span>
+                            )}
                           </Link>
                         </li>
                       );

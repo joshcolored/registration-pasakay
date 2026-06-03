@@ -4,8 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, X, Check, Trash2, AlertTriangle, Car, CreditCard, MapPin, CheckCircle2 } from 'lucide-react';
 import { database } from '@/lib/firebase';
-import { ref, onValue, off, update, remove, get } from 'firebase/database';
+import { ref, onValue, update, remove } from 'firebase/database';
 import { getStoredAdminSession } from '@/lib/adminSession';
+import {
+  getAdminNotificationRoute,
+  isAdminNotificationTarget,
+  isAdminNotificationType,
+} from '@/lib/adminNotificationRoutes';
 
 interface Notification {
   notificationId: string;
@@ -57,23 +62,8 @@ export default function NotificationBell() {
         
         Object.entries(data).forEach(([key, value]: [string, any]) => {
           totalCount++;
-          // Check if notification is for this admin
-          // Include notifications where targetUserId matches admin OR is empty (admin notifications)
-          const isAdminNotification = 
-            value.targetUserId === adminUid || 
-            value.targetUserId === '' || 
-            value.targetUserId === null ||
-            value.targetUserId === undefined;
-          
-          // Only include admin-type notifications (payment, driver registration, etc.)
-          const isAdminType = value.title?.includes('Payment') || 
-            value.title?.includes('Driver') || 
-            value.title?.includes('Verification') ||
-            value.title?.includes('Registration') ||
-            value.title?.includes('SOS') ||
-            value.title?.includes('Alert') ||
-            value.type === 'admin' ||
-            value.type === 'general';
+          const isAdminNotification = isAdminNotificationTarget(value, adminUid);
+          const isAdminType = isAdminNotificationType(value);
           
           if (isAdminNotification && isAdminType) {
             matchedCount++;
@@ -101,7 +91,7 @@ export default function NotificationBell() {
     });
 
     return () => {
-      off(notificationsRef);
+      unsubscribe();
     };
   }, [adminUid]);
 
@@ -119,44 +109,12 @@ export default function NotificationBell() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const getNotificationRoute = (notification: Notification): string | null => {
-    const title = notification.title?.toLowerCase() || '';
-    const type = notification.type?.toLowerCase() || '';
-    
-    // Driver registration -> Driver Verification page
-    if (title.includes('driver') && (title.includes('registration') || title.includes('registered'))) {
-      return '/dashboard/driver-verification';
-    }
-    
-    // Payment notifications -> Payments page
-    if (title.includes('payment') || title.includes('receipt')) {
-      return '/dashboard/payments';
-    }
-    
-    // Trip notifications -> Trips page
-    if (title.includes('trip') || type.includes('trip')) {
-      return '/dashboard/trips';
-    }
-    
-    // SOS/Alert notifications -> Trips page (to see the trip)
-    if (title.includes('sos') || title.includes('alert') || title.includes('emergency')) {
-      return '/dashboard/trips';
-    }
-    
-    // Verification notifications -> Driver Verification
-    if (title.includes('verification') || title.includes('verified')) {
-      return '/dashboard/driver-verification';
-    }
-    
-    return null;
-  };
-
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read
     await markAsRead(notification);
     
     // Get the route to navigate to
-    const route = getNotificationRoute(notification);
+    const route = getAdminNotificationRoute(notification);
     
     if (route) {
       setIsOpen(false);
