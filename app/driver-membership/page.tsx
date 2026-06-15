@@ -27,9 +27,8 @@ import {
   signOut,
   type User,
 } from 'firebase/auth';
-import { get, onValue, push, ref, update } from 'firebase/database';
+import { get, onValue, ref } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
-import { createAdminNotification } from '@/lib/adminNotifications';
 
 type Plan = '1_month' | '3_months';
 type PaymentMethod = 'gcash' | 'maya' | 'card' | 'bank_transfer';
@@ -203,52 +202,31 @@ export default function DriverMembershipPortalPage() {
         proofSize = Number(uploadData.bytes || proofFile.size || 0);
       }
 
-      const requestRef = push(ref(database, 'driver_membership_payments'));
-      const requestId = requestRef.key;
-      if (!requestId) throw new Error('Unable to create membership request.');
-
-      const now = new Date().toISOString();
-      const payload = {
-        requestId,
-        driverId: user.uid,
-        driverName: driverDisplayName,
-        driverEmail: user.email || driver.email || '',
-        driverPhone: driver.phone || driver.phoneNumber || '',
-        plan,
-        planLabel: selectedPlan.label,
-        amount,
-        paymentMethod,
-        paymentReference: paymentReference.trim(),
-        proofUrl,
-        proofPublicId,
-        proofFileName,
-        proofContentType,
-        proofSize,
-        status: 'pending',
-        source: 'driver_membership_portal',
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      const updates: Record<string, any> = {
-        [`driver_membership_payments/${requestId}`]: payload,
-        [`driver_membership_payment_history/${user.uid}/${requestId}`]: payload,
-      };
-
-      if (membershipStatus !== 'active') {
-        updates[`drivers/${user.uid}/membership_status`] = 'pending';
-        updates[`drivers/${user.uid}/membership_pending_request_id`] = requestId;
-        updates[`drivers/${user.uid}/membership_pending_at`] = now;
-      }
-
-      await update(ref(database), updates);
-
-      await createAdminNotification({
-        title: 'Driver Membership Submitted',
-        message: `${driverDisplayName} submitted a ${selectedPlan.label} membership request.`,
-        type: 'paymentSubmitted',
-        relatedId: requestId,
+      const idToken = await user.getIdToken();
+      const submitResponse = await fetch('/api/driver/membership/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          plan,
+          planLabel: selectedPlan.label,
+          amount,
+          paymentMethod,
+          paymentReference: paymentReference.trim(),
+          proofUrl,
+          proofPublicId,
+          proofFileName,
+          proofContentType,
+          proofSize,
+        }),
       });
+      const submitData = await submitResponse.json();
+
+      if (!submitResponse.ok) {
+        throw new Error(submitData?.error || 'Unable to submit membership request.');
+      }
 
       setPaymentReference('');
       setProofFile(null);
