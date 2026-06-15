@@ -154,7 +154,9 @@ export default function DriverMembershipPortalPage() {
   const membershipStatus = getDriverMembershipStatus(driver);
   const activeUntil = getDriverMembershipExpiry(driver);
   const activePlan = getDriverMembershipPlan(driver);
+  const isActiveOneMonthMember = membershipStatus === 'active' && activePlan === '1_month';
   const isActiveThreeMonthMember = membershipStatus === 'active' && activePlan === '3_months';
+  const isOneMonthUnavailable = isActiveOneMonthMember || isActiveThreeMonthMember;
   const displayedMembershipStatus =
     membershipStatus === 'active' && activePlan ? `Active - ${planCopy[activePlan].label}` : membershipStatus;
 
@@ -203,10 +205,10 @@ export default function DriverMembershipPortalPage() {
   }, []);
 
   useEffect(() => {
-    if (isActiveThreeMonthMember && plan === '1_month') {
+    if (isOneMonthUnavailable && plan === '1_month') {
       setPlan('3_months');
     }
-  }, [isActiveThreeMonthMember, plan]);
+  }, [isOneMonthUnavailable, plan]);
 
   useEffect(() => {
     if (temporarilyDisabledPaymentMethods.has(paymentMethod)) {
@@ -489,12 +491,12 @@ export default function DriverMembershipPortalPage() {
                   <button
                     key={value}
                     type="button"
-                    disabled={isActiveThreeMonthMember && value === '1_month'}
+                    disabled={isOneMonthUnavailable && value === '1_month'}
                     onClick={() => {
-                      if (!(isActiveThreeMonthMember && value === '1_month')) setPlan(value);
+                      if (!(isOneMonthUnavailable && value === '1_month')) setPlan(value);
                     }}
                     className={`rounded-md border p-4 text-left transition ${
-                      isActiveThreeMonthMember && value === '1_month'
+                      isOneMonthUnavailable && value === '1_month'
                         ? 'cursor-not-allowed border-[#dfe5e1] bg-[#f6f8f5] opacity-55'
                         : plan === value
                           ? 'border-[#1f6f68] bg-[#e8f4f2]'
@@ -503,8 +505,10 @@ export default function DriverMembershipPortalPage() {
                   >
                     <p className="font-black">{planCopy[value].label}</p>
                     <p className="mt-1 text-sm text-[#66736f]">{planCopy[value].days} days</p>
-                    {isActiveThreeMonthMember && value === '1_month' && (
-                      <p className="mt-2 text-xs font-bold text-[#66736f]">Unavailable while 3 Months is active</p>
+                    {isOneMonthUnavailable && value === '1_month' && (
+                      <p className="mt-2 text-xs font-bold text-[#66736f]">
+                        {isActiveOneMonthMember ? 'Upgrade available with 3 Months' : 'Unavailable while 3 Months is active'}
+                      </p>
                     )}
                     <p className="mt-3 text-2xl font-black text-[#1f6f68]">₱{prices[value].toLocaleString()}</p>
                   </button>
