@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { get, ref, update } from 'firebase/database';
 import {
   BadgeCheck,
   CalendarDays,
@@ -17,8 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { auth, database } from '@/lib/firebase';
-import { createAdminNotification } from '@/lib/adminNotifications';
+import { auth } from '@/lib/firebase';
 import { getStoredAdminSession } from '@/lib/adminSession';
 
 type MembershipStatus = 'pending' | 'approved' | 'rejected';
@@ -75,21 +73,6 @@ const formatDate = (value?: string | number | null) => {
   });
 };
 
-const toDateOnly = (value: number) => new Date(value).toISOString().slice(0, 10);
-
-const getExpiryMs = (driver: any) => {
-  const value =
-    driver?.membership_expires_at ||
-    driver?.membership_expiresAt ||
-    driver?.subscriptionExpiry ||
-    driver?.subscriptionEndDate;
-
-  if (!value) return 0;
-  if (typeof value === 'number') return value;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? 0 : parsed;
-};
-
 export default function DriverMembershipsPage() {
   const router = useRouter();
   const [payments, setPayments] = useState<MembershipPayment[]>([]);
@@ -104,6 +87,24 @@ export default function DriverMembershipsPage() {
     fileName?: string;
     contentType?: string;
   } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const getAdminToken = () =>
+    new Promise<string | null>((resolve) => {
+      if (auth.currentUser) {
+        auth.currentUser.getIdToken().then(resolve).catch(() => resolve(null));
+        return;
+      }
+
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        unsubscribe();
+        if (!currentUser) {
+          resolve(null);
+          return;
+        }
+        currentUser.getIdToken().then(resolve).catch(() => resolve(null));
+      });
+    });
 
   useEffect(() => {
     const adminUser = getStoredAdminSession();
@@ -114,25 +115,6 @@ export default function DriverMembershipsPage() {
 
     let mounted = true;
     let refreshId: ReturnType<typeof setInterval> | null = null;
-    let authUnsubscribe: (() => void) | null = null;
-
-    const getAdminToken = () =>
-      new Promise<string | null>((resolve) => {
-        if (auth.currentUser) {
-          auth.currentUser.getIdToken().then(resolve).catch(() => resolve(null));
-          return;
-        }
-
-        authUnsubscribe = onAuthStateChanged(auth, (currentUser) => {
-          authUnsubscribe?.();
-          authUnsubscribe = null;
-          if (!currentUser) {
-            resolve(null);
-            return;
-          }
-          currentUser.getIdToken().then(resolve).catch(() => resolve(null));
-        });
-      });
 
     const loadPayments = async () => {
       try {
@@ -168,9 +150,8 @@ export default function DriverMembershipsPage() {
     return () => {
       mounted = false;
       if (refreshId) clearInterval(refreshId);
-      authUnsubscribe?.();
     };
-  }, [router]);
+  }, [router, refreshKey]);
 
   const filteredPayments = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -220,61 +201,33 @@ export default function DriverMembershipsPage() {
 
     setProcessingId(payment.requestId);
     try {
-      const adminUser = getStoredAdminSession();
-      if (!adminUser) {
+      const token = await getAdminToken();
+      if (!token) {
         router.push('/pasakay/login?expired=1');
         return;
       }
 
-      const now = Date.now();
-      const nowIso = new Date(now).toISOString();
-      const driverSnapshot = await get(ref(database, `drivers/${payment.driverId}`));
-      const driver = driverSnapshot.exists() ? driverSnapshot.val() : {};
-      const currentExpiryMs = getExpiryMs(driver);
-      const baseMs = currentExpiryMs > now ? currentExpiryMs : now;
-      const expiresMs = baseMs + planDetails[normalizedPlan].days * 24 * 60 * 60 * 1000;
-      const expiresAtDate = toDateOnly(expiresMs);
-      const expiresAtIso = new Date(expiresMs).toISOString();
-      const updates: Record<string, any> = {};
-
-      updates[`driver_membership_payments/${payment.requestId}/status`] = 'approved';
-      updates[`driver_membership_payments/${payment.requestId}/reviewedAt`] = nowIso;
-      updates[`driver_membership_payments/${payment.requestId}/reviewedBy`] = adminUser.userId;
-      updates[`driver_membership_payments/${payment.requestId}/membership_expires_at`] = expiresAtDate;
-      updates[`driver_membership_payment_history/${payment.driverId}/${payment.requestId}/status`] = 'approved';
-      updates[`driver_membership_payment_history/${payment.driverId}/${payment.requestId}/reviewedAt`] = nowIso;
-      updates[`driver_membership_payment_history/${payment.driverId}/${payment.requestId}/reviewedBy`] = adminUser.userId;
-      updates[`driver_membership_payment_history/${payment.driverId}/${payment.requestId}/membership_expires_at`] = expiresAtDate;
-
-      updates[`drivers/${payment.driverId}/membership_status`] = 'active';
-      updates[`drivers/${payment.driverId}/membership_started_at`] = toDateOnly(now);
-      updates[`drivers/${payment.driverId}/membership_expires_at`] = expiresAtDate;
-      updates[`drivers/${payment.driverId}/membership_plan`] = normalizedPlan;
-      updates[`drivers/${payment.driverId}/plan`] = normalizedPlan;
-      updates[`drivers/${payment.driverId}/membership_source`] = 'web_portal';
-      updates[`drivers/${payment.driverId}/membership_last_payment_id`] = payment.requestId;
-      updates[`drivers/${payment.driverId}/membership_last_approved_at`] = nowIso;
-      updates[`drivers/${payment.driverId}/membership_pending_request_id`] = null;
-
-      updates[`drivers/${payment.driverId}/subscriptionStatus`] = 'active';
-      updates[`drivers/${payment.driverId}/subscriptionPlan`] = planDetails[normalizedPlan].flutterPlan;
-      updates[`drivers/${payment.driverId}/subscriptionType`] = planDetails[normalizedPlan].flutterPlan;
-      updates[`drivers/${payment.driverId}/subscriptionStartDate`] = now;
-      updates[`drivers/${payment.driverId}/subscriptionEndDate`] = expiresMs;
-      updates[`drivers/${payment.driverId}/subscriptionExpiry`] = expiresAtIso;
-      updates[`drivers/${payment.driverId}/hasActiveSubscription`] = true;
-
-      await update(ref(database), updates);
-
-      await createAdminNotification({
-        title: 'Driver Membership Approved',
-        message: `${payment.driverName}'s membership is active until ${expiresAtDate}.`,
-        type: 'paymentVerified',
-        relatedId: payment.requestId,
+      const response = await fetch('/api/admin/driver-memberships', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'approve',
+          requestId: payment.requestId,
+        }),
       });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to approve membership request.');
+      }
+
+      setRefreshKey((value) => value + 1);
     } catch (error) {
       console.error('Error approving driver membership:', error);
-      alert('Failed to approve membership request.');
+      alert(error instanceof Error ? error.message : 'Failed to approve membership request.');
     } finally {
       setProcessingId(null);
     }
@@ -288,50 +241,36 @@ export default function DriverMembershipsPage() {
 
     setProcessingId(selectedPayment.requestId);
     try {
-      const adminUser = getStoredAdminSession();
-      if (!adminUser) {
+      const token = await getAdminToken();
+      if (!token) {
         router.push('/pasakay/login?expired=1');
         return;
       }
 
-      const nowIso = new Date().toISOString();
-      const updates: Record<string, any> = {};
-
-      updates[`driver_membership_payments/${selectedPayment.requestId}/status`] = 'rejected';
-      updates[`driver_membership_payments/${selectedPayment.requestId}/rejectionReason`] = rejectionReason.trim();
-      updates[`driver_membership_payments/${selectedPayment.requestId}/reviewedAt`] = nowIso;
-      updates[`driver_membership_payments/${selectedPayment.requestId}/reviewedBy`] = adminUser.userId;
-      updates[`driver_membership_payment_history/${selectedPayment.driverId}/${selectedPayment.requestId}/status`] =
-        'rejected';
-      updates[
-        `driver_membership_payment_history/${selectedPayment.driverId}/${selectedPayment.requestId}/rejectionReason`
-      ] = rejectionReason.trim();
-      updates[`driver_membership_payment_history/${selectedPayment.driverId}/${selectedPayment.requestId}/reviewedAt`] =
-        nowIso;
-      updates[`driver_membership_payment_history/${selectedPayment.driverId}/${selectedPayment.requestId}/reviewedBy`] =
-        adminUser.userId;
-
-      const driverSnapshot = await get(ref(database, `drivers/${selectedPayment.driverId}`));
-      const driver = driverSnapshot.exists() ? driverSnapshot.val() : {};
-      if (driver?.membership_pending_request_id === selectedPayment.requestId) {
-        updates[`drivers/${selectedPayment.driverId}/membership_status`] = 'inactive';
-        updates[`drivers/${selectedPayment.driverId}/membership_pending_request_id`] = null;
-      }
-
-      await update(ref(database), updates);
-
-      await createAdminNotification({
-        title: 'Driver Membership Rejected',
-        message: `${selectedPayment.driverName}'s membership request was rejected.`,
-        type: 'paymentRejected',
-        relatedId: selectedPayment.requestId,
+      const response = await fetch('/api/admin/driver-memberships', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'reject',
+          requestId: selectedPayment.requestId,
+          rejectionReason: rejectionReason.trim(),
+        }),
       });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to reject membership request.');
+      }
 
       setSelectedPayment(null);
       setRejectionReason('');
+      setRefreshKey((value) => value + 1);
     } catch (error) {
       console.error('Error rejecting driver membership:', error);
-      alert('Failed to reject membership request.');
+      alert(error instanceof Error ? error.message : 'Failed to reject membership request.');
     } finally {
       setProcessingId(null);
     }
