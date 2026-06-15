@@ -108,6 +108,12 @@ const getDriverMembershipPlan = (driver: any): Plan | null => {
   return null;
 };
 
+const isDriverAccount = (driver: any, userRecord?: any) => {
+  const driverRole = String(driver?.role || driver?.userType || '').trim().toLowerCase();
+  const userRole = String(userRecord?.role || userRecord?.userType || '').trim().toLowerCase();
+  return driverRole === 'driver' || userRole === 'driver';
+};
+
 const normalizePlan = (plan: Plan) => (plan === '1_month' ? 'oneMonth' : 'threeMonths');
 
 const getSignInErrorMessage = (authError: any) => {
@@ -164,19 +170,41 @@ export default function DriverMembershipPortalPage() {
     return driver?.name || user?.displayName || user?.email || 'Driver';
   }, [driver, user]);
 
+  const loadAndValidateDriver = async (nextUser: User) => {
+    const driverRef = ref(database, `drivers/${nextUser.uid}`);
+    const userRef = ref(database, `users/${nextUser.uid}`);
+    const [driverSnapshot, userSnapshot] = await Promise.all([get(driverRef), get(userRef)]);
+    const driverData = driverSnapshot.exists() ? driverSnapshot.val() : null;
+    const userData = userSnapshot.exists() ? userSnapshot.val() : null;
+
+    if (!driverData || !isDriverAccount(driverData, userData)) {
+      setDriver(null);
+      setUser(null);
+      await signOut(auth);
+      throw new Error('Only driver accounts can access the membership portal.');
+    }
+
+    setDriver(driverData);
+    return driverData;
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
-      setUser(nextUser);
       setLoadingAuth(false);
 
       if (!nextUser) {
+        setUser(null);
         setDriver(null);
         return;
       }
 
-      const driverRef = ref(database, `drivers/${nextUser.uid}`);
-      const driverSnapshot = await get(driverRef);
-      setDriver(driverSnapshot.exists() ? driverSnapshot.val() : null);
+      try {
+        setError('');
+        await loadAndValidateDriver(nextUser);
+        setUser(nextUser);
+      } catch (authError: any) {
+        setError(authError.message || 'Only driver accounts can access the membership portal.');
+      }
     });
 
     return () => unsubscribe();
@@ -232,9 +260,11 @@ export default function DriverMembershipPortalPage() {
         (provider as OAuthProvider).addScope('name');
       }
 
-      await signInWithPopup(auth, provider);
+      const credential = await signInWithPopup(auth, provider);
+      await loadAndValidateDriver(credential.user);
+      setUser(credential.user);
     } catch (authError: any) {
-      setError(getSignInErrorMessage(authError));
+      setError(authError?.code ? getSignInErrorMessage(authError) : authError?.message || 'Unable to sign in. Please try again.');
     }
   };
 
@@ -243,9 +273,11 @@ export default function DriverMembershipPortalPage() {
     setError('');
     setMessage('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      await loadAndValidateDriver(credential.user);
+      setUser(credential.user);
     } catch (authError: any) {
-      setError(getSignInErrorMessage(authError));
+      setError(authError?.code ? getSignInErrorMessage(authError) : authError?.message || 'Unable to sign in. Please try again.');
     }
   };
 

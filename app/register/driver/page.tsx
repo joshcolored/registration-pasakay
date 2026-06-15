@@ -2,11 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, CheckCircle, AlertCircle, Camera, Eye, EyeOff, X } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle, AlertCircle, Camera, Eye, EyeOff, X, Apple, Mail, Facebook } from 'lucide-react';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, deleteUser, sendEmailVerification } from 'firebase/auth';
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  deleteUser,
+  sendEmailVerification,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  OAuthProvider,
+  signInWithPopup,
+  getAdditionalUserInfo,
+} from 'firebase/auth';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { getDatabase, ref, update } from 'firebase/database';
+import { getDatabase, get, ref, update } from 'firebase/database';
 import { useRegisterScrollMotion } from '@/components/RegisterMotion';
 import { createAdminNotification } from '@/lib/adminNotifications';
 
@@ -46,6 +56,8 @@ type OrCrExtractedFields = {
   vehicleModelMatched: boolean;
   vehicleNumberMatched: boolean;
 };
+
+type SocialAuthProvider = 'apple' | 'google' | 'facebook';
 
 let faceApiLoadPromise: Promise<any> | null = null;
 
@@ -171,6 +183,10 @@ export default function DriverRegistrationPage() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [socialAuthUser, setSocialAuthUser] = useState<FirebaseUser | null>(null);
+  const [socialAuthProvider, setSocialAuthProvider] = useState<SocialAuthProvider | null>(null);
+  const [socialAuthIsNewUser, setSocialAuthIsNewUser] = useState(false);
+  const [socialAuthLoading, setSocialAuthLoading] = useState<SocialAuthProvider | null>(null);
 
   // Form fields
   const [formData, setFormData] = useState({
@@ -212,6 +228,86 @@ export default function DriverRegistrationPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const getSocialProviderLabel = (provider: SocialAuthProvider | null) => {
+    if (provider === 'apple') return 'Apple ID';
+    if (provider === 'google') return 'Google';
+    if (provider === 'facebook') return 'Facebook';
+    return 'social account';
+  };
+
+  const startSocialRegistration = async (providerType: SocialAuthProvider) => {
+    setError('');
+    setSocialAuthLoading(providerType);
+
+    try {
+      const provider =
+        providerType === 'apple'
+          ? new OAuthProvider('apple.com')
+          : providerType === 'google'
+            ? new GoogleAuthProvider()
+            : new FacebookAuthProvider();
+
+      provider.addScope('email');
+      if (providerType === 'google') {
+        provider.addScope('profile');
+      } else if (providerType === 'apple') {
+        provider.addScope('name');
+      }
+
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const [driverSnapshot, userSnapshot] = await Promise.all([
+        get(ref(database, `drivers/${user.uid}`)),
+        get(ref(database, `users/${user.uid}`)),
+      ]);
+      const existingDriver = driverSnapshot.val();
+      const existingUser = userSnapshot.val();
+      const existingRole = String(existingUser?.role || existingUser?.userType || existingDriver?.role || existingDriver?.userType || '')
+        .trim()
+        .toLowerCase();
+
+      if (existingDriver || existingRole === 'driver') {
+        await auth.signOut();
+        throw new Error('This account is already registered as a driver. Please sign in from the driver membership portal.');
+      }
+
+      if (existingUser && existingRole && existingRole !== 'driver') {
+        await auth.signOut();
+        throw new Error('Only a driver account can be registered here. Please use a different email for driver registration.');
+      }
+
+      const displayName = user.displayName?.trim() || '';
+      const email = user.email?.trim().toLowerCase() || '';
+      setSocialAuthUser(user);
+      setSocialAuthProvider(providerType);
+      setSocialAuthIsNewUser(Boolean(getAdditionalUserInfo(result)?.isNewUser));
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || displayName,
+        email: email || prev.email,
+        password: '',
+        confirmPassword: '',
+      }));
+    } catch (err: any) {
+      console.error('Social registration error:', err);
+      setSocialAuthUser(null);
+      setSocialAuthProvider(null);
+      setSocialAuthIsNewUser(false);
+
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        setError('Sign in was cancelled.');
+      } else if (err.code === 'auth/account-exists-with-different-credential') {
+        setError('This email is already connected to another sign-in method.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError(`${getSocialProviderLabel(providerType)} registration is not enabled in Firebase Authentication yet.`);
+      } else {
+        setError(err.message || `Unable to continue with ${getSocialProviderLabel(providerType)}.`);
+      }
+    } finally {
+      setSocialAuthLoading(null);
+    }
   };
 
   const handleFileChange = (
@@ -540,21 +636,24 @@ export default function DriverRegistrationPage() {
     const vehicleNumber = formData.vehicleNumber.trim();
     const vehicleModel = formData.vehicleModel.trim();
     const vehicleLicense = formData.vehicleLicense.trim();
+    const isPasswordRegistration = !socialAuthUser;
 
     // Validation
-    if (!name || !email || !phone || !formData.password) {
+    if (!name || !email || !phone || (isPasswordRegistration && !formData.password)) {
       setError('Please fill in all required fields');
       return;
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+    if (isPasswordRegistration) {
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters');
+        return;
+      }
     }
 
     if (!phone.match(/^09\d{9}$/)) {
@@ -662,10 +761,12 @@ export default function DriverRegistrationPage() {
     let registrationSaved = false;
 
     try {
-      // Step 1: Create user account
-      console.log('Creating user account...');
-      const userCredential = await createUserWithEmailAndPassword(auth, email, formData.password);
-      const user = userCredential.user;
+      // Step 1: Create or reuse the selected Firebase Auth account
+      console.log(socialAuthUser ? 'Using connected social account...' : 'Creating user account...');
+      const userCredential = socialAuthUser
+        ? null
+        : await createUserWithEmailAndPassword(auth, email, formData.password);
+      const user = socialAuthUser || userCredential!.user;
       createdUser = user;
       console.log('User created:', user.uid);
 
@@ -694,6 +795,7 @@ export default function DriverRegistrationPage() {
         email,
         name,
         phone,
+        authProvider: socialAuthProvider || 'password',
         userType: 'driver',
         role: 'driver',
         vehicleType: formData.vehicleType,
@@ -736,6 +838,7 @@ export default function DriverRegistrationPage() {
         email,
         name,
         phone,
+        authProvider: socialAuthProvider || 'password',
         userType: 'driver',
         role: 'driver',
         isActive: true,
@@ -768,12 +871,14 @@ export default function DriverRegistrationPage() {
       }
 
       // Step 5: Send email verification
-      try {
-        await sendEmailVerification(user);
-        console.log('Verification email sent');
-      } catch (emailError) {
-        console.error('Email verification error:', emailError);
-        // Continue even if email fails
+      if (user.email && !user.emailVerified) {
+        try {
+          await sendEmailVerification(user);
+          console.log('Verification email sent');
+        } catch (emailError) {
+          console.error('Email verification error:', emailError);
+          // Continue even if email fails
+        }
       }
 
       // Sign out the user (they shouldn't be logged in yet)
@@ -787,9 +892,14 @@ export default function DriverRegistrationPage() {
     } catch (err: any) {
       console.error('Registration error:', err);
       let cleanupWarning = '';
-      if (createdUser && !registrationSaved) {
+      if (createdUser && !registrationSaved && (!socialAuthUser || socialAuthIsNewUser)) {
         try {
           await deleteUser(createdUser);
+          if (socialAuthUser) {
+            setSocialAuthUser(null);
+            setSocialAuthProvider(null);
+            setSocialAuthIsNewUser(false);
+          }
         } catch (cleanupError) {
           console.error('Failed to clean up incomplete driver account:', cleanupError);
           cleanupWarning = ' Your login account may have been created; contact admin if retry says the email is already registered.';
@@ -833,7 +943,11 @@ export default function DriverRegistrationPage() {
           <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-4 text-left">
             <p className="mb-2 text-sm font-medium text-sky-900">What&apos;s next?</p>
             <ol className="space-y-2 text-sm text-sky-800">
-              <li>1. Check your email ({formData.email}) and verify your account</li>
+              <li>
+                1. {socialAuthProvider
+                  ? `Your ${getSocialProviderLabel(socialAuthProvider)} account is connected`
+                  : `Check your email (${formData.email}) and verify your account`}
+              </li>
               <li>2. Admin will review your documents</li>
               <li>3. You&apos;ll be notified once approved</li>
               <li>4. Download the Pasakay app and start driving!</li>
@@ -961,6 +1075,62 @@ export default function DriverRegistrationPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Sign-up Method */}
+            <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">Sign-up Method</h3>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => startSocialRegistration('apple')}
+                  disabled={isLoading || Boolean(socialAuthLoading)}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-sm font-semibold text-[#18211f] transition-all hover:border-[#1f6f68]/50 hover:bg-[#1f6f68]/5 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+                >
+                  {socialAuthLoading === 'apple' ? (
+                    <span className="h-4 w-4 rounded-full border-2 border-[#1f6f68] border-t-transparent animate-spin" />
+                  ) : (
+                    <Apple className="h-5 w-5" />
+                  )}
+                  Apple ID
+                </button>
+                <button
+                  type="button"
+                  onClick={() => startSocialRegistration('google')}
+                  disabled={isLoading || Boolean(socialAuthLoading)}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-sm font-semibold text-[#18211f] transition-all hover:border-[#1f6f68]/50 hover:bg-[#1f6f68]/5 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+                >
+                  {socialAuthLoading === 'google' ? (
+                    <span className="h-4 w-4 rounded-full border-2 border-[#1f6f68] border-t-transparent animate-spin" />
+                  ) : (
+                    <Mail className="h-5 w-5" />
+                  )}
+                  Google
+                </button>
+                <button
+                  type="button"
+                  onClick={() => startSocialRegistration('facebook')}
+                  disabled={isLoading || Boolean(socialAuthLoading)}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-sm font-semibold text-[#18211f] transition-all hover:border-[#1f6f68]/50 hover:bg-[#1f6f68]/5 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+                >
+                  {socialAuthLoading === 'facebook' ? (
+                    <span className="h-4 w-4 rounded-full border-2 border-[#1f6f68] border-t-transparent animate-spin" />
+                  ) : (
+                    <Facebook className="h-5 w-5" />
+                  )}
+                  Facebook
+                </button>
+              </div>
+              {socialAuthUser ? (
+                <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                  Connected with {getSocialProviderLabel(socialAuthProvider)}
+                  {socialAuthUser.email ? ` as ${socialAuthUser.email}` : ''}.
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-[#66736f]">
+                  You can also continue below with email and password.
+                </p>
+              )}
+            </div>
+
             {/* Personal Information */}
             <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
               <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">Personal Information</h3>
@@ -988,7 +1158,8 @@ export default function DriverRegistrationPage() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#1f6f68] focus:ring-2 focus:ring-[#1f6f68]/15"
+                    readOnly={Boolean(socialAuthUser?.email)}
+                    className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#1f6f68] focus:ring-2 focus:ring-[#1f6f68]/15 read-only:bg-zinc-100 read-only:text-[#49534f]"
                     placeholder="e.g. juan@example.com"
                     required
                   />
@@ -1302,54 +1473,60 @@ export default function DriverRegistrationPage() {
             {/* Password */}
             <div className="gsap-card rounded-2xl border border-[#e5e2d8] bg-[#faf9f5] p-5 sm:p-6 shadow-sm">
               <h3 className="text-base font-bold text-[#18211f] border-b border-[#e5e2d8] pb-3 mb-5">Account Security</h3>
-              <div className="grid md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
-                    Password <span className="text-[#b42318]">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 pr-12 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#1f6f68] focus:ring-2 focus:ring-[#1f6f68]/15"
-                      placeholder="Minimum 6 characters"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#66736f] hover:text-[#18211f]"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+              {socialAuthUser ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                  Your driver login will use {getSocialProviderLabel(socialAuthProvider)}. No password is needed on this form.
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                      Password <span className="text-[#b42318]">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 pr-12 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#1f6f68] focus:ring-2 focus:ring-[#1f6f68]/15"
+                        placeholder="Minimum 6 characters"
+                        required={!socialAuthUser}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#66736f] hover:text-[#18211f]"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
+                      Confirm Password <span className="text-[#b42318]">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleInputChange}
+                        className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 pr-12 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#1f6f68] focus:ring-2 focus:ring-[#1f6f68]/15"
+                        placeholder="Re-enter password"
+                        required={!socialAuthUser}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#66736f] hover:text-[#18211f]"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#49534f] mb-2">
-                    Confirm Password <span className="text-[#b42318]">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                      className="w-full rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 pr-12 text-[#18211f] placeholder-[#9aa09c] outline-none transition-all duration-300 focus:border-[#1f6f68] focus:ring-2 focus:ring-[#1f6f68]/15"
-                      placeholder="Re-enter password"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#66736f] hover:text-[#18211f]"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Terms and Conditions */}
