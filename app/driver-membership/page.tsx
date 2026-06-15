@@ -35,8 +35,8 @@ type Plan = '1_month' | '3_months';
 type PaymentMethod = 'gcash' | 'maya' | 'card' | 'bank_transfer';
 
 const planCopy: Record<Plan, { label: string; months: number; days: number; fallbackPrice: number }> = {
-  '1_month': { label: '1 Month', months: 1, days: 30, fallbackPrice: 150 },
-  '3_months': { label: '3 Months', months: 3, days: 90, fallbackPrice: 300 },
+  '1_month': { label: '1 Month', months: 1, days: 30, fallbackPrice: 299 },
+  '3_months': { label: '3 Months', months: 3, days: 90, fallbackPrice: 599 },
 };
 
 const paymentMethods: Array<{ value: PaymentMethod; label: string; icon: any }> = [
