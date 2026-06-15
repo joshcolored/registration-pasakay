@@ -46,6 +46,8 @@ const paymentMethods: Array<{ value: PaymentMethod; label: string; icon: any }> 
   { value: 'bank_transfer', label: 'Bank Transfer', icon: Landmark },
 ];
 
+const temporarilyDisabledPaymentMethods = new Set<PaymentMethod>(['maya', 'card', 'bank_transfer']);
+
 const formatDate = (value?: string | number | null) => {
   if (!value) return 'Not active';
   const date = new Date(value);
@@ -205,6 +207,12 @@ export default function DriverMembershipPortalPage() {
       setPlan('3_months');
     }
   }, [isActiveThreeMonthMember, plan]);
+
+  useEffect(() => {
+    if (temporarilyDisabledPaymentMethods.has(paymentMethod)) {
+      setPaymentMethod('gcash');
+    }
+  }, [paymentMethod]);
 
   const signInWithProvider = async (providerName: 'apple' | 'google' | 'facebook') => {
     setError('');
@@ -374,18 +382,21 @@ export default function DriverMembershipPortalPage() {
             ))}
           </div>
 
+          <div className="rounded-md border border-[#dfe5e1] bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-2">
+              <img src="/gcash-logo.png" alt="GCash" className="h-7 w-28 object-contain" />
+              <div className="text-base font-semibold leading-6 text-[#18211f]">
+                <p>AR••E FR••Z L.</p>
+                <p>09945172742</p>
+              </div>
+            </div>
+          </div>
+
           {user && (
             <div className="rounded-md border border-[#dfe5e1] bg-white p-5 shadow-sm">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#66736f]">Current status</p>
               <div className="mt-3 flex items-start justify-between gap-4">
                 <div>
-                  {membershipStatus === 'active' && (
-                    <div className="mb-3 rounded-md border border-[#cfe4df] bg-[#eff8f5] px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-[#1f6f68]">
-                      <p>GCASH</p>
-                      <p>AR••E FR••Z L.</p>
-                      <p>09945172742</p>
-                    </div>
-                  )}
                   <p className="text-2xl font-black capitalize text-[#18211f]">{displayedMembershipStatus}</p>
                   <p className="mt-1 text-sm text-[#66736f]">
                     {membershipStatus === 'active'
@@ -503,19 +514,33 @@ export default function DriverMembershipPortalPage() {
               <div>
                 <label className="text-sm font-black text-[#18211f]">Payment method</label>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {paymentMethods.map(({ value, label, icon: Icon }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setPaymentMethod(value)}
-                      className={`flex items-center gap-3 rounded-md border px-3 py-3 text-sm font-bold transition ${
-                        paymentMethod === value ? 'border-[#1f6f68] bg-[#e8f4f2] text-[#1f6f68]' : 'border-[#dfe5e1] hover:bg-[#f6f8f5]'
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" />
-                      {label}
-                    </button>
-                  ))}
+                  {paymentMethods.map(({ value, label, icon: Icon }) => {
+                    const isTemporarilyDisabled = temporarilyDisabledPaymentMethods.has(value);
+
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        disabled={isTemporarilyDisabled}
+                        onClick={() => {
+                          if (!isTemporarilyDisabled) setPaymentMethod(value);
+                        }}
+                        className={`flex items-center gap-3 rounded-md border px-3 py-3 text-sm font-bold transition ${
+                          isTemporarilyDisabled
+                            ? 'cursor-not-allowed border-[#dfe5e1] bg-[#f6f8f5] text-[#89918d] opacity-55'
+                            : paymentMethod === value
+                              ? 'border-[#1f6f68] bg-[#e8f4f2] text-[#1f6f68]'
+                              : 'border-[#dfe5e1] hover:bg-[#f6f8f5]'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="flex flex-col items-start leading-tight">
+                          <span>{label}</span>
+                          {isTemporarilyDisabled && <span className="text-xs font-semibold">Temporarily unavailable</span>}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
