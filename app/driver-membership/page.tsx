@@ -51,7 +51,7 @@ const temporarilyDisabledPaymentMethods = new Set<PaymentMethod>(['maya', 'card'
 
 const payMongoPageLinks: Record<Plan, string> = {
   '1_month': 'https://paymongo.page/l/pasakay-driver-membership-1',
-  '3_months': 'https://paymongo.page/l/pasakay-driver-membership-3',
+  '3_months': 'https://paymongo.page/l/pasakay-driver-membership-10',
 };
 
 const formatDate = (value?: string | number | null) => {
@@ -422,7 +422,7 @@ export default function DriverMembershipPortalPage() {
               </div>
             ))}
           </div>
-
+{/* 
           <div className="rounded-md border border-[#dfe5e1] bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-2">
               <img src="/gcash-logo.png" alt="GCash" className="h-7 w-28 object-contain" />
@@ -431,7 +431,7 @@ export default function DriverMembershipPortalPage() {
                 <p>09945172742</p>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {user && (
             <div className="rounded-md border border-[#dfe5e1] bg-white p-5 shadow-sm">
