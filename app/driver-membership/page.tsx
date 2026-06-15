@@ -90,6 +90,22 @@ const getDriverMembershipStatus = (driver: any) => {
   return 'inactive';
 };
 
+const getDriverMembershipPlan = (driver: any): Plan | null => {
+  const rawPlan = String(
+    driver?.membership_plan ||
+      driver?.plan ||
+      driver?.subscriptionPlan ||
+      driver?.subscriptionType ||
+      ''
+  )
+    .trim()
+    .toLowerCase();
+
+  if (rawPlan === '3_months' || rawPlan === 'threemonths' || rawPlan === 'three_months') return '3_months';
+  if (rawPlan === '1_month' || rawPlan === 'onemonth' || rawPlan === 'one_month') return '1_month';
+  return null;
+};
+
 const normalizePlan = (plan: Plan) => (plan === '1_month' ? 'oneMonth' : 'threeMonths');
 
 const getSignInErrorMessage = (authError: any) => {
@@ -135,6 +151,10 @@ export default function DriverMembershipPortalPage() {
   const amount = prices[plan] || selectedPlan.fallbackPrice;
   const membershipStatus = getDriverMembershipStatus(driver);
   const activeUntil = getDriverMembershipExpiry(driver);
+  const activePlan = getDriverMembershipPlan(driver);
+  const isActiveThreeMonthMember = membershipStatus === 'active' && activePlan === '3_months';
+  const displayedMembershipStatus =
+    membershipStatus === 'active' && activePlan ? `Active - ${planCopy[activePlan].label}` : membershipStatus;
 
   const driverDisplayName = useMemo(() => {
     return driver?.name || user?.displayName || user?.email || 'Driver';
@@ -180,6 +200,12 @@ export default function DriverMembershipPortalPage() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (isActiveThreeMonthMember && plan === '1_month') {
+      setPlan('3_months');
+    }
+  }, [isActiveThreeMonthMember, plan]);
+
   const signInWithProvider = async (providerName: 'apple' | 'google' | 'facebook') => {
     setError('');
     setMessage('');
@@ -211,6 +237,11 @@ export default function DriverMembershipPortalPage() {
     } catch (authError: any) {
       setError(getSignInErrorMessage(authError));
     }
+  };
+
+  const handleSignOut = async () => {
+    if (!confirm('Are you sure you want to logout?')) return;
+    await signOut(auth);
   };
 
   const submitPayment = async (event: React.FormEvent) => {
@@ -308,7 +339,7 @@ export default function DriverMembershipPortalPage() {
           </div>
           {user && (
             <button
-              onClick={() => signOut(auth)}
+              onClick={handleSignOut}
               className="inline-flex items-center gap-2 rounded-md border border-[#dfe5e1] bg-white px-3 py-2 text-sm font-bold text-[#49534f] transition hover:bg-[#edf0eb]"
             >
               <LogOut className="h-4 w-4" />
@@ -348,7 +379,7 @@ export default function DriverMembershipPortalPage() {
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#66736f]">Current status</p>
               <div className="mt-3 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-2xl font-black capitalize text-[#18211f]">{membershipStatus}</p>
+                  <p className="text-2xl font-black capitalize text-[#18211f]">{displayedMembershipStatus}</p>
                   <p className="mt-1 text-sm text-[#66736f]">
                     {membershipStatus === 'active'
                       ? `Active until ${formatDate(activeUntil)}`
@@ -440,13 +471,23 @@ export default function DriverMembershipPortalPage() {
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setPlan(value)}
+                    disabled={isActiveThreeMonthMember && value === '1_month'}
+                    onClick={() => {
+                      if (!(isActiveThreeMonthMember && value === '1_month')) setPlan(value);
+                    }}
                     className={`rounded-md border p-4 text-left transition ${
-                      plan === value ? 'border-[#1f6f68] bg-[#e8f4f2]' : 'border-[#dfe5e1] bg-white hover:bg-[#f6f8f5]'
+                      isActiveThreeMonthMember && value === '1_month'
+                        ? 'cursor-not-allowed border-[#dfe5e1] bg-[#f6f8f5] opacity-55'
+                        : plan === value
+                          ? 'border-[#1f6f68] bg-[#e8f4f2]'
+                          : 'border-[#dfe5e1] bg-white hover:bg-[#f6f8f5]'
                     }`}
                   >
                     <p className="font-black">{planCopy[value].label}</p>
                     <p className="mt-1 text-sm text-[#66736f]">{planCopy[value].days} days</p>
+                    {isActiveThreeMonthMember && value === '1_month' && (
+                      <p className="mt-2 text-xs font-bold text-[#66736f]">Unavailable while 3 Months is active</p>
+                    )}
                     <p className="mt-3 text-2xl font-black text-[#1f6f68]">₱{prices[value].toLocaleString()}</p>
                   </button>
                 ))}
