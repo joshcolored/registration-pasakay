@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { get, onValue, ref, update } from 'firebase/database';
+import { onAuthStateChanged } from 'firebase/auth';
+import { get, ref, update } from 'firebase/database';
 import {
   BadgeCheck,
   CalendarDays,
@@ -16,7 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { database } from '@/lib/firebase';
+import { auth, database } from '@/lib/firebase';
 import { createAdminNotification } from '@/lib/adminNotifications';
 import { getStoredAdminSession } from '@/lib/adminSession';
 
@@ -111,40 +112,64 @@ export default function DriverMembershipsPage() {
       return;
     }
 
-    const paymentsRef = ref(database, 'driver_membership_payments');
-    const unsubscribe = onValue(
-      paymentsRef,
-      (snapshot) => {
-        const nextPayments: MembershipPayment[] = [];
-        const data = snapshot.val() || {};
+    let mounted = true;
+    let refreshId: ReturnType<typeof setInterval> | null = null;
+    let authUnsubscribe: (() => void) | null = null;
 
-        Object.entries<any>(data).forEach(([id, value]) => {
-          const status = value?.status === 'approved' || value?.status === 'rejected' ? value.status : 'pending';
-          nextPayments.push({
-            ...value,
-            requestId: value?.requestId || id,
-            driverId: value?.driverId || value?.userId || '',
-            driverName: value?.driverName || 'N/A',
-            status,
-          });
+    const getAdminToken = () =>
+      new Promise<string | null>((resolve) => {
+        if (auth.currentUser) {
+          auth.currentUser.getIdToken().then(resolve).catch(() => resolve(null));
+          return;
+        }
+
+        authUnsubscribe = onAuthStateChanged(auth, (currentUser) => {
+          authUnsubscribe?.();
+          authUnsubscribe = null;
+          if (!currentUser) {
+            resolve(null);
+            return;
+          }
+          currentUser.getIdToken().then(resolve).catch(() => resolve(null));
         });
+      });
 
-        nextPayments.sort((a, b) => {
-          const aTime = Date.parse(a.createdAt || '') || 0;
-          const bTime = Date.parse(b.createdAt || '') || 0;
-          return bTime - aTime;
+    const loadPayments = async () => {
+      try {
+        const token = await getAdminToken();
+        if (!token) {
+          router.push('/pasakay/login?expired=1');
+          return;
+        }
+
+        const response = await fetch('/api/admin/driver-memberships', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
         });
+        const data = await response.json();
 
-        setPayments(nextPayments);
-        setLoading(false);
-      },
-      (error) => {
+        if (!response.ok) {
+          throw new Error(data?.error || 'Unable to load membership requests.');
+        }
+
+        if (mounted) {
+          setPayments(Array.isArray(data.payments) ? data.payments : []);
+          setLoading(false);
+        }
+      } catch (error) {
         console.error('Error loading driver membership payments:', error);
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
+    loadPayments();
+    refreshId = setInterval(loadPayments, 10000);
+
+    return () => {
+      mounted = false;
+      if (refreshId) clearInterval(refreshId);
+      authUnsubscribe?.();
+    };
   }, [router]);
 
   const filteredPayments = useMemo(() => {
