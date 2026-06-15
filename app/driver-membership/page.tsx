@@ -9,6 +9,7 @@ import {
   Building2,
   CheckCircle,
   CreditCard,
+  ExternalLink,
   Facebook,
   Landmark,
   Loader2,
@@ -47,6 +48,11 @@ const paymentMethods: Array<{ value: PaymentMethod; label: string; icon: any }> 
 ];
 
 const temporarilyDisabledPaymentMethods = new Set<PaymentMethod>(['maya', 'card', 'bank_transfer']);
+
+const payMongoPageLinks: Record<Plan, string> = {
+  '1_month': 'https://paymongo.page/l/pasakay-driver-membership-1',
+  '3_months': 'https://paymongo.page/l/pasakay-driver-membership-3',
+};
 
 const formatDate = (value?: string | number | null) => {
   if (!value) return 'Not active';
@@ -157,6 +163,7 @@ export default function DriverMembershipPortalPage() {
 
   const selectedPlan = planCopy[plan];
   const amount = prices[plan] || selectedPlan.fallbackPrice;
+  const payMongoPageUrl = payMongoPageLinks[plan];
   const membershipStatus = getDriverMembershipStatus(driver);
   const activeUntil = getDriverMembershipExpiry(driver);
   const activePlan = getDriverMembershipPlan(driver);
@@ -578,6 +585,34 @@ export default function DriverMembershipPortalPage() {
                     );
                   })}
                 </div>
+              </div>
+
+              <div className="rounded-md border border-[#cce5df] bg-[#f1faf7] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-[#18211f]">PayMongo QR Ph payment</p>
+                    <p className="mt-1 text-sm text-[#66736f]">
+                      Pay {selectedPlan.label} membership on PayMongo, then paste the reference below for admin review.
+                    </p>
+                  </div>
+                  <a
+                    href={payMongoPageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-black text-white transition ${
+                      isActiveThreeMonthMember
+                        ? 'pointer-events-none bg-zinc-300 text-zinc-500'
+                        : 'bg-[#1f6f68] hover:bg-[#174c49]'
+                    }`}
+                    aria-disabled={isActiveThreeMonthMember}
+                  >
+                    Pay {selectedPlan.label}
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
+                <p className="mt-3 break-all rounded-md bg-white px-3 py-2 text-xs font-semibold text-[#1f6f68]">
+                  {payMongoPageUrl}
+                </p>
               </div>
 
               <div>
