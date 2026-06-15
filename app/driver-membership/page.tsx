@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Apple,
+  AlertCircle,
   ArrowRight,
   BadgeCheck,
   Building2,
@@ -57,6 +58,27 @@ const formatDate = (value?: string | number | null) => {
 };
 
 const normalizePlan = (plan: Plan) => (plan === '1_month' ? 'oneMonth' : 'threeMonths');
+
+const getSignInErrorMessage = (authError: any) => {
+  switch (authError?.code) {
+    case 'auth/user-not-found':
+      return 'No account was found with this email address.';
+    case 'auth/wrong-password':
+      return 'Incorrect password. Please try again.';
+    case 'auth/invalid-credential':
+      return 'Invalid email or password.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/too-many-requests':
+      return 'Too many failed attempts. Please wait a moment and try again.';
+    case 'auth/popup-closed-by-user':
+      return 'Sign-in was cancelled before it finished.';
+    case 'auth/account-exists-with-different-credential':
+      return 'An account already exists with this email using a different sign-in method.';
+    default:
+      return authError?.message || 'Unable to sign in. Please try again.';
+  }
+};
 
 export default function DriverMembershipPortalPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -143,7 +165,7 @@ export default function DriverMembershipPortalPage() {
 
       await signInWithPopup(auth, provider);
     } catch (authError: any) {
-      setError(authError.message || 'Unable to sign in. Please try again.');
+      setError(getSignInErrorMessage(authError));
     }
   };
 
@@ -154,7 +176,7 @@ export default function DriverMembershipPortalPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (authError: any) {
-      setError(authError.message || 'Unable to sign in. Please try again.');
+      setError(getSignInErrorMessage(authError));
     }
   };
 
@@ -319,6 +341,13 @@ export default function DriverMembershipPortalPage() {
                 <h2 className="text-2xl font-black">Sign in</h2>
                 <p className="mt-1 text-sm text-[#66736f]">Use the same account connected to your driver profile.</p>
               </div>
+
+              {error && (
+                <div className="flex items-start gap-3 rounded-md border border-[#f0c2bd] bg-[#fff3f1] p-4 text-sm font-semibold text-[#b42318]">
+                  <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                  <p>{error}</p>
+                </div>
+              )}
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <button onClick={() => signInWithProvider('apple')} className="flex items-center justify-center gap-2 rounded-md border border-[#dfe5e1] px-3 py-3 font-bold hover:bg-[#f6f8f5]">
