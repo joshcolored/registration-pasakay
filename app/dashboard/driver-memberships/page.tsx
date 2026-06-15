@@ -35,6 +35,7 @@ type MembershipPayment = {
   paymentMethod?: string;
   paymentReference?: string;
   proofUrl?: string;
+  proofPublicId?: string;
   proofDataUrl?: string;
   proofFileName?: string;
   proofContentType?: string;
@@ -425,7 +426,7 @@ export default function DriverMembershipsPage() {
                 ) : (
                   filteredPayments.map((payment) => {
                     const normalizedPlan = normalizePlan(payment.plan);
-                    const proofDataUrl = payment.proofDataUrl || payment.proofUrl || '';
+                    const proofUrl = payment.proofUrl || payment.proofDataUrl || '';
                     return (
                       <tr key={payment.requestId} className="hover:bg-[#f9faf7]">
                         <td className="px-5 py-4">
@@ -449,11 +450,11 @@ export default function DriverMembershipsPage() {
                           <p className="max-w-44 truncate text-sm font-semibold text-[#18211f]">
                             {payment.paymentReference || 'N/A'}
                           </p>
-                          {proofDataUrl && (
+                          {proofUrl && (
                             <button
                               onClick={() =>
                                 setProofViewer({
-                                  dataUrl: proofDataUrl,
+                                  dataUrl: proofUrl,
                                   fileName: payment.proofFileName,
                                   contentType: payment.proofContentType,
                                 })

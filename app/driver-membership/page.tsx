@@ -34,8 +34,6 @@ import { createAdminNotification } from '@/lib/adminNotifications';
 type Plan = '1_month' | '3_months';
 type PaymentMethod = 'gcash' | 'maya' | 'card' | 'bank_transfer';
 
-const maxProofFileSize = 2 * 1024 * 1024;
-
 const planCopy: Record<Plan, { label: string; months: number; days: number; fallbackPrice: number }> = {
   '1_month': { label: '1 Month', months: 1, days: 30, fallbackPrice: 150 },
   '3_months': { label: '3 Months', months: 3, days: 90, fallbackPrice: 300 },
@@ -60,14 +58,6 @@ const formatDate = (value?: string | number | null) => {
 };
 
 const normalizePlan = (plan: Plan) => (plan === '1_month' ? 'oneMonth' : 'threeMonths');
-
-const fileToDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('Unable to read proof of payment file.'));
-    reader.readAsDataURL(file);
-  });
 
 export default function DriverMembershipPortalPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -180,26 +170,37 @@ export default function DriverMembershipPortalPage() {
       setError('Enter a payment reference number.');
       return;
     }
-    if (proofFile && proofFile.size > maxProofFileSize) {
-      setError('Proof of payment must be 2MB or smaller.');
-      return;
-    }
 
     setSubmitting(true);
     setError('');
     setMessage('');
 
     try {
-      let proofDataUrl = '';
+      let proofUrl = '';
+      let proofPublicId = '';
       let proofFileName = '';
       let proofContentType = '';
       let proofSize = 0;
 
       if (proofFile) {
-        proofDataUrl = await fileToDataUrl(proofFile);
-        proofFileName = proofFile.name;
-        proofContentType = proofFile.type || 'application/octet-stream';
-        proofSize = proofFile.size;
+        const uploadForm = new FormData();
+        uploadForm.append('file', proofFile);
+
+        const uploadResponse = await fetch('/api/cloudinary/upload', {
+          method: 'POST',
+          body: uploadForm,
+        });
+        const uploadData = await uploadResponse.json();
+
+        if (!uploadResponse.ok) {
+          throw new Error(uploadData?.error || 'Unable to upload proof of payment.');
+        }
+
+        proofUrl = uploadData.secureUrl || '';
+        proofPublicId = uploadData.publicId || '';
+        proofFileName = uploadData.originalFilename || proofFile.name;
+        proofContentType = proofFile.type || uploadData.resourceType || 'application/octet-stream';
+        proofSize = Number(uploadData.bytes || proofFile.size || 0);
       }
 
       const requestRef = push(ref(database, 'driver_membership_payments'));
@@ -218,7 +219,8 @@ export default function DriverMembershipPortalPage() {
         amount,
         paymentMethod,
         paymentReference: paymentReference.trim(),
-        proofDataUrl,
+        proofUrl,
+        proofPublicId,
         proofFileName,
         proofContentType,
         proofSize,
