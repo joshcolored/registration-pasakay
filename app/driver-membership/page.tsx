@@ -379,6 +379,13 @@ export default function DriverMembershipPortalPage() {
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#66736f]">Current status</p>
               <div className="mt-3 flex items-start justify-between gap-4">
                 <div>
+                  {membershipStatus === 'active' && (
+                    <div className="mb-3 rounded-md border border-[#cfe4df] bg-[#eff8f5] px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-[#1f6f68]">
+                      <p>GCASH</p>
+                      <p>AR••E FR••Z L.</p>
+                      <p>09945172742</p>
+                    </div>
+                  )}
                   <p className="text-2xl font-black capitalize text-[#18211f]">{displayedMembershipStatus}</p>
                   <p className="mt-1 text-sm text-[#66736f]">
                     {membershipStatus === 'active'
@@ -537,11 +544,11 @@ export default function DriverMembershipPortalPage() {
               {message && <div className="rounded-md bg-[#eff8f5] p-3 text-sm font-semibold text-[#1f6f68]">{message}</div>}
 
               <button
-                disabled={submitting || !driver}
+                disabled={submitting || !driver || isActiveThreeMonthMember}
                 className="flex w-full items-center justify-center gap-2 rounded-md bg-[#1f6f68] px-4 py-3 font-black text-white disabled:opacity-55"
               >
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Building2 className="h-5 w-5" />}
-                Submit for Admin Review
+                {isActiveThreeMonthMember ? '3 Months Membership Active' : 'Submit for Admin Review'}
               </button>
             </form>
           )}
