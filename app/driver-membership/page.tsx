@@ -28,12 +28,13 @@ import {
   type User,
 } from 'firebase/auth';
 import { get, onValue, push, ref, update } from 'firebase/database';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { auth, database, storage } from '@/lib/firebase';
+import { auth, database } from '@/lib/firebase';
 import { createAdminNotification } from '@/lib/adminNotifications';
 
 type Plan = '1_month' | '3_months';
 type PaymentMethod = 'gcash' | 'maya' | 'card' | 'bank_transfer';
+
+const maxProofFileSize = 2 * 1024 * 1024;
 
 const planCopy: Record<Plan, { label: string; months: number; days: number; fallbackPrice: number }> = {
   '1_month': { label: '1 Month', months: 1, days: 30, fallbackPrice: 150 },
@@ -59,6 +60,14 @@ const formatDate = (value?: string | number | null) => {
 };
 
 const normalizePlan = (plan: Plan) => (plan === '1_month' ? 'oneMonth' : 'threeMonths');
+
+const fileToDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Unable to read proof of payment file.'));
+    reader.readAsDataURL(file);
+  });
 
 export default function DriverMembershipPortalPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -171,18 +180,26 @@ export default function DriverMembershipPortalPage() {
       setError('Enter a payment reference number.');
       return;
     }
+    if (proofFile && proofFile.size > maxProofFileSize) {
+      setError('Proof of payment must be 2MB or smaller.');
+      return;
+    }
 
     setSubmitting(true);
     setError('');
     setMessage('');
 
     try {
-      let proofUrl = '';
+      let proofDataUrl = '';
+      let proofFileName = '';
+      let proofContentType = '';
+      let proofSize = 0;
+
       if (proofFile) {
-        const path = `driver-memberships/${user.uid}/${Date.now()}-${proofFile.name}`;
-        const fileRef = storageRef(storage, path);
-        await uploadBytes(fileRef, proofFile);
-        proofUrl = await getDownloadURL(fileRef);
+        proofDataUrl = await fileToDataUrl(proofFile);
+        proofFileName = proofFile.name;
+        proofContentType = proofFile.type || 'application/octet-stream';
+        proofSize = proofFile.size;
       }
 
       const requestRef = push(ref(database, 'driver_membership_payments'));
@@ -201,7 +218,10 @@ export default function DriverMembershipPortalPage() {
         amount,
         paymentMethod,
         paymentReference: paymentReference.trim(),
-        proofUrl,
+        proofDataUrl,
+        proofFileName,
+        proofContentType,
+        proofSize,
         status: 'pending',
         source: 'driver_membership_portal',
         createdAt: now,

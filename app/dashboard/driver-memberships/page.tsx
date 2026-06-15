@@ -35,6 +35,10 @@ type MembershipPayment = {
   paymentMethod?: string;
   paymentReference?: string;
   proofUrl?: string;
+  proofDataUrl?: string;
+  proofFileName?: string;
+  proofContentType?: string;
+  proofSize?: number;
   status: MembershipStatus;
   source?: string;
   createdAt?: string;
@@ -93,7 +97,11 @@ export default function DriverMembershipsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<MembershipPayment | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [proofViewerUrl, setProofViewerUrl] = useState<string | null>(null);
+  const [proofViewer, setProofViewer] = useState<{
+    dataUrl: string;
+    fileName?: string;
+    contentType?: string;
+  } | null>(null);
 
   useEffect(() => {
     const adminUser = getStoredAdminSession();
@@ -417,6 +425,7 @@ export default function DriverMembershipsPage() {
                 ) : (
                   filteredPayments.map((payment) => {
                     const normalizedPlan = normalizePlan(payment.plan);
+                    const proofDataUrl = payment.proofDataUrl || payment.proofUrl || '';
                     return (
                       <tr key={payment.requestId} className="hover:bg-[#f9faf7]">
                         <td className="px-5 py-4">
@@ -440,9 +449,15 @@ export default function DriverMembershipsPage() {
                           <p className="max-w-44 truncate text-sm font-semibold text-[#18211f]">
                             {payment.paymentReference || 'N/A'}
                           </p>
-                          {payment.proofUrl && (
+                          {proofDataUrl && (
                             <button
-                              onClick={() => setProofViewerUrl(payment.proofUrl || null)}
+                              onClick={() =>
+                                setProofViewer({
+                                  dataUrl: proofDataUrl,
+                                  fileName: payment.proofFileName,
+                                  contentType: payment.proofContentType,
+                                })
+                              }
                               className="mt-2 inline-flex items-center gap-1 rounded-md border border-[#dfe5e1] px-2 py-1 text-xs font-bold text-[#1f6f68] hover:bg-[#eff8f5]"
                             >
                               <Eye className="h-3.5 w-3.5" />
@@ -549,19 +564,22 @@ export default function DriverMembershipsPage() {
         </div>
       )}
 
-      {proofViewerUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18211f]/70 p-4" onClick={() => setProofViewerUrl(null)}>
+      {proofViewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18211f]/70 p-4" onClick={() => setProofViewer(null)}>
           <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-md bg-white" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[#dfe5e1] px-4 py-3">
-              <h2 className="font-black text-[#18211f]">Payment Proof</h2>
-              <button onClick={() => setProofViewerUrl(null)} className="rounded-md p-2 text-[#66736f] hover:bg-[#f6f8f5]">
+              <div>
+                <h2 className="font-black text-[#18211f]">Payment Proof</h2>
+                {proofViewer.fileName && <p className="mt-1 text-xs font-semibold text-[#66736f]">{proofViewer.fileName}</p>}
+              </div>
+              <button onClick={() => setProofViewer(null)} className="rounded-md p-2 text-[#66736f] hover:bg-[#f6f8f5]">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="max-h-[76vh] overflow-auto bg-[#f6f8f5] p-4">
-              {proofViewerUrl.toLowerCase().includes('.pdf') ? (
+              {proofViewer.contentType === 'application/pdf' || proofViewer.dataUrl.startsWith('data:application/pdf') || proofViewer.dataUrl.toLowerCase().includes('.pdf') ? (
                 <a
-                  href={proofViewerUrl}
+                  href={proofViewer.dataUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex rounded-md bg-[#1f6f68] px-4 py-3 font-black text-white"
@@ -569,7 +587,7 @@ export default function DriverMembershipsPage() {
                   Open PDF proof
                 </a>
               ) : (
-                <img src={proofViewerUrl} alt="Payment proof" className="mx-auto max-h-[70vh] rounded-md object-contain" />
+                <img src={proofViewer.dataUrl} alt="Payment proof" className="mx-auto max-h-[70vh] rounded-md object-contain" />
               )}
             </div>
           </div>
