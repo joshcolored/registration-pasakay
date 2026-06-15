@@ -51,7 +51,7 @@ const temporarilyDisabledPaymentMethods = new Set<PaymentMethod>(['maya', 'card'
 
 const payMongoPageLinks: Record<Plan, string> = {
   '1_month': 'https://paymongo.page/l/pasakay-driver-membership-1',
-  '3_months': 'https://paymongo.page/l/pasakay-driver-membership-10',
+  '3_months': 'https://paymongo.page/l/pasakay-driver-membership-3',
 };
 
 const formatDate = (value?: string | number | null) => {
