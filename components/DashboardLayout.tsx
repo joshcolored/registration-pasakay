@@ -9,6 +9,7 @@ import {
   Car,
   MapPin,
   CreditCard,
+  BadgeCheck,
   Settings,
   LogOut,
   Menu,
@@ -61,6 +62,7 @@ const navGroups = [
       { name: 'Merchants', href: '/dashboard/merchants', icon: Store },
       { name: 'Food Orders', href: '/dashboard/food-orders', icon: Truck },
       { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
+      { name: 'Driver Memberships', href: '/dashboard/driver-memberships', icon: BadgeCheck },
     ],
   },
   {
@@ -83,6 +85,7 @@ const pageDescriptions: Record<string, string> = {
   '/dashboard/trips': 'Trip monitoring',
   '/dashboard/service-areas': 'Coverage management',
   '/dashboard/payments': 'Payment verification',
+  '/dashboard/driver-memberships': 'Driver membership approvals',
   '/dashboard/deleted-accounts': 'Account recovery blocks',
   '/dashboard/app-versions': 'Release controls',
   '/dashboard/settings': 'Platform settings',
