@@ -57,6 +57,39 @@ const formatDate = (value?: string | number | null) => {
   });
 };
 
+const getDriverMembershipExpiry = (driver: any) =>
+  driver?.membership_expires_at ||
+  driver?.membership_expiresAt ||
+  driver?.subscriptionExpiry ||
+  driver?.subscriptionEndDate ||
+  null;
+
+const isFutureDate = (value?: string | number | null) => {
+  if (!value) return false;
+  const parsed = typeof value === 'number' ? value : Date.parse(String(value));
+  if (Number.isNaN(parsed)) return false;
+  return parsed >= Date.now();
+};
+
+const getDriverMembershipStatus = (driver: any) => {
+  const explicitStatus = String(driver?.membership_status || '').trim().toLowerCase();
+  const expiry = getDriverMembershipExpiry(driver);
+  const subscriptionStatus = String(driver?.subscriptionStatus || '').trim().toLowerCase();
+  const hasActiveSubscription = driver?.hasActiveSubscription === true;
+
+  if (explicitStatus === 'active') {
+    return expiry && !isFutureDate(expiry) ? 'expired' : 'active';
+  }
+
+  if ((subscriptionStatus === 'active' || hasActiveSubscription || expiry) && isFutureDate(expiry)) {
+    return 'active';
+  }
+
+  if (explicitStatus === 'pending') return 'pending';
+  if (explicitStatus === 'expired') return 'expired';
+  return 'inactive';
+};
+
 const normalizePlan = (plan: Plan) => (plan === '1_month' ? 'oneMonth' : 'threeMonths');
 
 const getSignInErrorMessage = (authError: any) => {
@@ -100,8 +133,8 @@ export default function DriverMembershipPortalPage() {
 
   const selectedPlan = planCopy[plan];
   const amount = prices[plan] || selectedPlan.fallbackPrice;
-  const membershipStatus = String(driver?.membership_status || 'inactive').toLowerCase();
-  const activeUntil = driver?.membership_expires_at || driver?.subscriptionExpiry || null;
+  const membershipStatus = getDriverMembershipStatus(driver);
+  const activeUntil = getDriverMembershipExpiry(driver);
 
   const driverDisplayName = useMemo(() => {
     return driver?.name || user?.displayName || user?.email || 'Driver';
