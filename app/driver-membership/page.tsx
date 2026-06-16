@@ -502,14 +502,14 @@ export default function DriverMembershipPortalPage() {
               <div className="rounded-md border border-[#cce5df] bg-[#f1faf7] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-black text-[#18211f]">PayMongo QR Ph payment</p>
+                    <p className="text-sm font-black text-[#18211f]">PayMongo QR PH payment</p>
                     <p className="mt-1 text-sm text-[#66736f]">
                       Pay PHP {amount.toLocaleString()} for {selectedPlan.label}. PayMongo will confirm the payment and activate your membership automatically.
                     </p>
                   </div>
-                  <span className="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-black text-[#1f6f68]">
+                  {/* <span className="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-black text-[#1f6f68]">
                     QR Ph only
-                  </span>
+                  </span> */}
                 </div>
               </div>
 
@@ -523,7 +523,7 @@ export default function DriverMembershipPortalPage() {
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Building2 className="h-5 w-5" />}
                 {isActiveThreeMonthMember ? '3 Months Membership Active' : (
                   <>
-                    Pay with PayMongo QR Ph
+                    Pay with PayMongo QR PH
                     <ExternalLink className="h-4 w-4" />
                   </>
                 )}
