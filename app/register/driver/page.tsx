@@ -300,6 +300,8 @@ export default function DriverRegistrationPage() {
         setError('Sign in was cancelled.');
       } else if (err.code === 'auth/account-exists-with-different-credential') {
         setError('This email is already connected to another sign-in method.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('This website domain is not allowed for Firebase sign-in yet. Add registration-pasakay.vercel.app in Firebase Authentication > Settings > Authorized domains.');
       } else if (err.code === 'auth/operation-not-allowed') {
         setError(`${getSocialProviderLabel(providerType)} registration is not enabled in Firebase Authentication yet.`);
       } else {

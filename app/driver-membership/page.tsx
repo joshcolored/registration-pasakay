@@ -119,6 +119,8 @@ const getSignInErrorMessage = (authError: any) => {
       return 'Sign-in was cancelled before it finished.';
     case 'auth/account-exists-with-different-credential':
       return 'An account already exists with this email using a different sign-in method.';
+    case 'auth/unauthorized-domain':
+      return 'This website domain is not allowed for Firebase sign-in yet. Add registration-pasakay.vercel.app in Firebase Authentication > Settings > Authorized domains.';
     default:
       return authError?.message || 'Unable to sign in. Please try again.';
   }
