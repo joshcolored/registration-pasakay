@@ -237,6 +237,14 @@ export default function DriverRegistrationPage() {
     return 'social account';
   };
 
+  const getAccountRoleLabel = (role: string) => {
+    const normalizedRole = role.trim().toLowerCase();
+    if (normalizedRole === 'passenger' || normalizedRole === 'customer' || normalizedRole === 'user') return 'PASSENGER';
+    if (normalizedRole === 'merchant' || normalizedRole === 'vendor') return 'MERCHANT';
+    if (normalizedRole === 'driver') return 'DRIVER';
+    return normalizedRole ? normalizedRole.toUpperCase() : 'ANOTHER ROLE';
+  };
+
   const clearSocialRegistration = async () => {
     setError('');
     try {
@@ -290,12 +298,12 @@ export default function DriverRegistrationPage() {
 
       if (existingDriver || existingRole === 'driver') {
         await auth.signOut();
-        throw new Error('This account is already registered as a driver. Please sign in from the driver membership portal.');
+        throw new Error('This email has already been registered as DRIVER. Please sign in from the driver membership portal.');
       }
 
       if (existingUser && existingRole && existingRole !== 'driver') {
         await auth.signOut();
-        throw new Error('Only a driver account can be registered here. Please use a different email for driver registration.');
+        throw new Error(`This email has already been registered as ${getAccountRoleLabel(existingRole)}. Please use a different email for driver registration.`);
       }
 
       const displayName = user.displayName?.trim() || '';
@@ -319,7 +327,7 @@ export default function DriverRegistrationPage() {
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
         setError('Sign in was cancelled.');
       } else if (err.code === 'auth/account-exists-with-different-credential') {
-        setError('This email is already connected to another sign-in method.');
+        setError('This email has already been registered with another sign-in method. Please use a different email for driver registration.');
       } else if (err.code === 'auth/unauthorized-domain') {
         setError('This website domain is not allowed for Firebase sign-in yet. Add registration-pasakay.vercel.app in Firebase Authentication > Settings > Authorized domains.');
       } else if (err.code === 'auth/operation-not-allowed') {
