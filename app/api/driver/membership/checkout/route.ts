@@ -4,7 +4,7 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin';
 type MembershipPlan = '1_month' | '3_months';
 
 const planDetails: Record<MembershipPlan, { label: string; days: number; amount: number }> = {
-  '1_month': { label: '1 Month', days: 30, amount: 299 },
+  '1_month': { label: '1 Month', days: 30, amount: 1 },
   '3_months': { label: '3 Months', days: 90, amount: 599 },
 };
 
