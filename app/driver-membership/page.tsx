@@ -8,16 +8,12 @@ import {
   BadgeCheck,
   Building2,
   CheckCircle,
-  CreditCard,
   ExternalLink,
   Facebook,
-  Landmark,
   Loader2,
   LogOut,
   Mail,
-  Phone,
   ShieldCheck,
-  Wallet,
 } from 'lucide-react';
 import {
   FacebookAuthProvider,
@@ -33,25 +29,10 @@ import { get, onValue, ref } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 
 type Plan = '1_month' | '3_months';
-type PaymentMethod = 'gcash' | 'maya' | 'card' | 'bank_transfer';
 
 const planCopy: Record<Plan, { label: string; months: number; days: number; fallbackPrice: number }> = {
   '1_month': { label: '1 Month', months: 1, days: 30, fallbackPrice: 299 },
   '3_months': { label: '3 Months', months: 3, days: 90, fallbackPrice: 599 },
-};
-
-const paymentMethods: Array<{ value: PaymentMethod; label: string; icon: any }> = [
-  { value: 'gcash', label: 'GCash', icon: Wallet },
-  { value: 'maya', label: 'Maya', icon: Phone },
-  { value: 'card', label: 'Card', icon: CreditCard },
-  { value: 'bank_transfer', label: 'Bank Transfer', icon: Landmark },
-];
-
-const temporarilyDisabledPaymentMethods = new Set<PaymentMethod>(['maya', 'card', 'bank_transfer']);
-
-const payMongoPageLinks: Record<Plan, string> = {
-  '1_month': 'https://paymongo.page/l/pasakay-driver-membership-1',
-  '3_months': 'https://paymongo.page/l/pasakay-driver-membership-3',
 };
 
 const formatDate = (value?: string | number | null) => {
@@ -149,9 +130,6 @@ export default function DriverMembershipPortalPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [plan, setPlan] = useState<Plan>('1_month');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
-  const [paymentReference, setPaymentReference] = useState('');
-  const [proofFile, setProofFile] = useState<File | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
@@ -163,7 +141,6 @@ export default function DriverMembershipPortalPage() {
 
   const selectedPlan = planCopy[plan];
   const amount = prices[plan] || selectedPlan.fallbackPrice;
-  const payMongoPageUrl = payMongoPageLinks[plan];
   const membershipStatus = getDriverMembershipStatus(driver);
   const activeUntil = getDriverMembershipExpiry(driver);
   const activePlan = getDriverMembershipPlan(driver);
@@ -246,10 +223,15 @@ export default function DriverMembershipPortalPage() {
   }, [isOneMonthUnavailable, plan]);
 
   useEffect(() => {
-    if (temporarilyDisabledPaymentMethods.has(paymentMethod)) {
-      setPaymentMethod('gcash');
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const checkoutStatus = params.get('checkout');
+    if (checkoutStatus === 'success') {
+      setMessage('Payment completed. PayMongo is confirming it now; your membership will activate automatically.');
+    } else if (checkoutStatus === 'cancelled') {
+      setError('PayMongo payment was cancelled. You can start a new QR Ph payment anytime.');
     }
-  }, [paymentMethod]);
+  }, []);
 
   const signInWithProvider = async (providerName: 'apple' | 'google' | 'facebook') => {
     setError('');
@@ -293,15 +275,11 @@ export default function DriverMembershipPortalPage() {
     await signOut(auth);
   };
 
-  const submitPayment = async (event: React.FormEvent) => {
+  const startPayMongoCheckout = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!user) return;
     if (!driver) {
       setError('No driver profile was found for this account.');
-      return;
-    }
-    if (!paymentReference.trim()) {
-      setError('Enter a payment reference number.');
       return;
     }
 
@@ -310,35 +288,8 @@ export default function DriverMembershipPortalPage() {
     setMessage('');
 
     try {
-      let proofUrl = '';
-      let proofPublicId = '';
-      let proofFileName = '';
-      let proofContentType = '';
-      let proofSize = 0;
-
-      if (proofFile) {
-        const uploadForm = new FormData();
-        uploadForm.append('file', proofFile);
-
-        const uploadResponse = await fetch('/api/cloudinary/upload', {
-          method: 'POST',
-          body: uploadForm,
-        });
-        const uploadData = await uploadResponse.json();
-
-        if (!uploadResponse.ok) {
-          throw new Error(uploadData?.error || 'Unable to upload proof of payment.');
-        }
-
-        proofUrl = uploadData.secureUrl || '';
-        proofPublicId = uploadData.publicId || '';
-        proofFileName = uploadData.originalFilename || proofFile.name;
-        proofContentType = proofFile.type || uploadData.resourceType || 'application/octet-stream';
-        proofSize = Number(uploadData.bytes || proofFile.size || 0);
-      }
-
       const idToken = await user.getIdToken();
-      const submitResponse = await fetch('/api/driver/membership/submit', {
+      const checkoutResponse = await fetch('/api/driver/membership/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -346,29 +297,21 @@ export default function DriverMembershipPortalPage() {
         },
         body: JSON.stringify({
           plan,
-          planLabel: selectedPlan.label,
-          amount,
-          paymentMethod,
-          paymentReference: paymentReference.trim(),
-          proofUrl,
-          proofPublicId,
-          proofFileName,
-          proofContentType,
-          proofSize,
         }),
       });
-      const submitData = await submitResponse.json();
+      const checkoutData = await checkoutResponse.json();
 
-      if (!submitResponse.ok) {
-        throw new Error(submitData?.error || 'Unable to submit membership request.');
+      if (!checkoutResponse.ok) {
+        throw new Error(checkoutData?.error || 'Unable to start PayMongo checkout.');
       }
 
-      setPaymentReference('');
-      setProofFile(null);
-      setMessage('Membership request submitted. PaSakay Admin will review it shortly.');
+      if (!checkoutData?.checkoutUrl) {
+        throw new Error('PayMongo checkout URL was not returned.');
+      }
+
+      window.location.href = checkoutData.checkoutUrl;
     } catch (submitError: any) {
-      setError(submitError.message || 'Unable to submit membership request.');
-    } finally {
+      setError(submitError.message || 'Unable to start PayMongo payment.');
       setSubmitting(false);
     }
   };
@@ -513,10 +456,10 @@ export default function DriverMembershipPortalPage() {
               </form>
             </div>
           ) : (
-            <form onSubmit={submitPayment} className="space-y-5">
+            <form onSubmit={startPayMongoCheckout} className="space-y-5">
               <div>
                 <h2 className="text-2xl font-black">Membership request</h2>
-                <p className="mt-1 text-sm text-[#66736f]">Submit your payment details for PaSakay Admin review.</p>
+                <p className="mt-1 text-sm text-[#66736f]">Pay with PayMongo QR Ph. Membership activates automatically after successful payment.</p>
               </div>
 
               {!driver && (
@@ -554,86 +497,18 @@ export default function DriverMembershipPortalPage() {
                 ))}
               </div>
 
-              <div>
-                <label className="text-sm font-black text-[#18211f]">Payment method</label>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {paymentMethods.map(({ value, label, icon: Icon }) => {
-                    const isTemporarilyDisabled = temporarilyDisabledPaymentMethods.has(value);
-
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        disabled={isTemporarilyDisabled}
-                        onClick={() => {
-                          if (!isTemporarilyDisabled) setPaymentMethod(value);
-                        }}
-                        className={`flex items-center gap-3 rounded-md border px-3 py-3 text-sm font-bold transition ${
-                          isTemporarilyDisabled
-                            ? 'cursor-not-allowed border-[#dfe5e1] bg-[#f6f8f5] text-[#89918d] opacity-55'
-                            : paymentMethod === value
-                              ? 'border-[#1f6f68] bg-[#e8f4f2] text-[#1f6f68]'
-                              : 'border-[#dfe5e1] hover:bg-[#f6f8f5]'
-                        }`}
-                      >
-                        <Icon className="h-5 w-5" />
-                        <span className="flex flex-col items-start leading-tight">
-                          <span>{label}</span>
-                          {isTemporarilyDisabled && <span className="text-xs font-semibold">Temporarily unavailable</span>}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               <div className="rounded-md border border-[#cce5df] bg-[#f1faf7] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-black text-[#18211f]">PayMongo QR Ph payment</p>
                     <p className="mt-1 text-sm text-[#66736f]">
-                      Pay {selectedPlan.label} membership on PayMongo, then paste the reference below for admin review.
+                      Pay PHP {amount.toLocaleString()} for {selectedPlan.label}. PayMongo will confirm the payment and activate your membership automatically.
                     </p>
                   </div>
-                  <a
-                    href={payMongoPageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-black text-white transition ${
-                      isActiveThreeMonthMember
-                        ? 'pointer-events-none bg-zinc-300 text-zinc-500'
-                        : 'bg-[#1f6f68] hover:bg-[#174c49]'
-                    }`}
-                    aria-disabled={isActiveThreeMonthMember}
-                  >
-                    Pay {selectedPlan.label}
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
+                  <span className="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-black text-[#1f6f68]">
+                    QR Ph only
+                  </span>
                 </div>
-                <p className="mt-3 break-all rounded-md bg-white px-3 py-2 text-xs font-semibold text-[#1f6f68]">
-                  {payMongoPageUrl}
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-black text-[#18211f]">Payment reference</label>
-                <input
-                  value={paymentReference}
-                  onChange={(event) => setPaymentReference(event.target.value)}
-                  placeholder="Reference number or transaction ID"
-                  className="mt-2 w-full rounded-md border border-[#dfe5e1] px-4 py-3 outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-black text-[#18211f]">Proof of payment</label>
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(event) => setProofFile(event.target.files?.[0] || null)}
-                  className="mt-2 w-full rounded-md border border-[#dfe5e1] bg-white px-4 py-3 text-sm"
-                />
               </div>
 
               {error && <div className="rounded-md bg-[#fff3f1] p-3 text-sm font-semibold text-[#b42318]">{error}</div>}
@@ -644,7 +519,12 @@ export default function DriverMembershipPortalPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-md bg-[#1f6f68] px-4 py-3 font-black text-white disabled:opacity-55"
               >
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Building2 className="h-5 w-5" />}
-                {isActiveThreeMonthMember ? '3 Months Membership Active' : 'Submit for Admin Review'}
+                {isActiveThreeMonthMember ? '3 Months Membership Active' : (
+                  <>
+                    Pay with PayMongo QR Ph
+                    <ExternalLink className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </form>
           )}
