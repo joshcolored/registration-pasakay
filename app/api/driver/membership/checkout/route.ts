@@ -4,7 +4,7 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin';
 type MembershipPlan = '1_month' | '3_months';
 
 const planDetails: Record<MembershipPlan, { label: string; days: number; amount: number }> = {
-  '1_month': { label: '1 Month', days: 30, amount: 1 },
+  '1_month': { label: '1 Month', days: 30, amount: 299 },
   '3_months': { label: '3 Months', days: 90, amount: 599 },
 };
 
@@ -41,6 +41,26 @@ const getBaseUrl = (request: Request) => {
 
   const url = new URL(request.url);
   return url.origin;
+};
+
+const getPlanFromSettings = async (plan: MembershipPlan) => {
+  const snapshot = await getAdminDb().ref('settings/subscription').get();
+  const settings = snapshot.exists() ? snapshot.val() : {};
+  const defaults = planDetails[plan];
+
+  if (plan === '1_month') {
+    return {
+      label: defaults.label,
+      days: Number(settings?.oneMonthDays || defaults.days),
+      amount: Number(settings?.oneMonthPrice || defaults.amount),
+    };
+  }
+
+  return {
+    label: defaults.label,
+    days: Number(settings?.threeMonthsDays || defaults.days),
+    amount: Number(settings?.threeMonthsPrice || defaults.amount),
+  };
 };
 
 export async function POST(request: Request) {
@@ -88,7 +108,15 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const selectedPlan = planDetails[plan];
+    const selectedPlan = await getPlanFromSettings(plan);
+    if (!Number.isFinite(selectedPlan.amount) || selectedPlan.amount <= 0) {
+      return NextResponse.json({ error: 'Membership price is not configured correctly.' }, { status: 400 });
+    }
+
+    if (!Number.isFinite(selectedPlan.days) || selectedPlan.days <= 0) {
+      return NextResponse.json({ error: 'Membership duration is not configured correctly.' }, { status: 400 });
+    }
+
     const driverName = driver?.name || decoded.name || decoded.email || 'Driver';
     const baseUrl = getBaseUrl(request);
     const referenceNumber = `PASAKAY-${requestId}`;
@@ -139,6 +167,7 @@ export async function POST(request: Request) {
       driverPhone: driver?.phone || driver?.phoneNumber || '',
       plan,
       planLabel: selectedPlan.label,
+      planDays: selectedPlan.days,
       amount: selectedPlan.amount,
       paymentMethod: 'paymongo_qrph',
       status: 'awaiting_payment',

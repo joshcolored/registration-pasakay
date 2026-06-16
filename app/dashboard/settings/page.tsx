@@ -132,8 +132,8 @@ export default function SettingsPage() {
     'Exclusive promotions',
   ];
   const [subscriptionSettings, setSubscriptionSettings] = useState<SubscriptionSettings>({
-    oneMonthPrice: 150,
-    threeMonthsPrice: 300,
+    oneMonthPrice: 299,
+    threeMonthsPrice: 599,
     oneMonthDays: 30,
     threeMonthsDays: 90,
     isEnabled: true,
@@ -319,8 +319,8 @@ export default function SettingsPage() {
         }
 
         setSubscriptionSettings({
-          oneMonthPrice: data.oneMonthPrice || 150,
-          threeMonthsPrice: data.threeMonthsPrice || 300,
+          oneMonthPrice: data.oneMonthPrice || 299,
+          threeMonthsPrice: data.threeMonthsPrice || 599,
           oneMonthDays: data.oneMonthDays || 30,
           threeMonthsDays: data.threeMonthsDays || 90,
           isEnabled: data.isEnabled !== false,

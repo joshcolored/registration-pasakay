@@ -154,7 +154,8 @@ export async function POST(request: Request) {
     const nowIso = new Date(now).toISOString();
     const currentExpiryMs = getExpiryMs(driver);
     const baseMs = currentExpiryMs > now ? currentExpiryMs : now;
-    const expiresMs = baseMs + planDetails[normalizedPlan].days * 24 * 60 * 60 * 1000;
+    const planDays = Number(checkout?.planDays || planDetails[normalizedPlan].days);
+    const expiresMs = baseMs + planDays * 24 * 60 * 60 * 1000;
     const expiresAtDate = toDateOnly(expiresMs);
     const expiresAtIso = new Date(expiresMs).toISOString();
     const paymentId =
@@ -172,6 +173,7 @@ export async function POST(request: Request) {
       driverPhone: checkout?.driverPhone || driver?.phone || driver?.phoneNumber || '',
       plan: normalizedPlan,
       planLabel: checkout?.planLabel || planDetails[normalizedPlan].label,
+      planDays,
       amount: Number(checkout?.amount || 0),
       paymentMethod: 'paymongo_qrph',
       paymentReference: paymentId,
