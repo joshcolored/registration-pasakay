@@ -1,4 +1,0 @@
-PAYMONGO_SECRET_KEY=sk_live_1XpwgutxHyu9Sb8tP8ndF3TJ
-PAYMONGO_WEBHOOK_SECRET=QErN0CmauM2QE02qYI7kgh3GF6jPmlRCmoPZ5Ji0GyR3OrLrGGJrqRtMK38kNzWR
-NEXT_PUBLIC_APP_URL=https://registration-pasakay.vercel.app
-WEBHOOK=https://registration-pasakay.vercel.app/api/paymongo/webhook?secret=your_random_secret
