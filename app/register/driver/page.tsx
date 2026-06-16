@@ -237,6 +237,26 @@ export default function DriverRegistrationPage() {
     return 'social account';
   };
 
+  const clearSocialRegistration = async () => {
+    setError('');
+    try {
+      await auth.signOut();
+    } catch (signOutError) {
+      console.error('Social registration sign out error:', signOutError);
+    }
+
+    setSocialAuthUser(null);
+    setSocialAuthProvider(null);
+    setSocialAuthIsNewUser(false);
+    setFormData(prev => ({
+      ...prev,
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    }));
+  };
+
   const startSocialRegistration = async (providerType: SocialAuthProvider) => {
     setError('');
     setSocialAuthLoading(providerType);
@@ -285,7 +305,7 @@ export default function DriverRegistrationPage() {
       setSocialAuthIsNewUser(Boolean(getAdditionalUserInfo(result)?.isNewUser));
       setFormData(prev => ({
         ...prev,
-        name: prev.name || displayName,
+        name: displayName || prev.name,
         email: email || prev.email,
         password: '',
         confirmPassword: '',
@@ -1122,9 +1142,33 @@ export default function DriverRegistrationPage() {
                 </button>
               </div>
               {socialAuthUser ? (
-                <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-                  Connected with {getSocialProviderLabel(socialAuthProvider)}
-                  {socialAuthUser.email ? ` as ${socialAuthUser.email}` : ''}.
+                <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">
+                        Logged in as
+                      </p>
+                      <p className="mt-1 break-words text-sm font-black text-emerald-900">
+                        {socialAuthUser.displayName || socialAuthUser.email || getSocialProviderLabel(socialAuthProvider)}
+                      </p>
+                      {socialAuthUser.email && socialAuthUser.displayName && (
+                        <p className="mt-0.5 break-all text-xs font-semibold text-emerald-800">
+                          {socialAuthUser.email}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearSocialRegistration}
+                      disabled={isLoading}
+                      className="inline-flex items-center justify-center rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-black text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-emerald-800">
+                    Password fields are hidden because this registration will use {getSocialProviderLabel(socialAuthProvider)}.
+                  </p>
                 </div>
               ) : (
                 <p className="mt-4 text-sm text-[#66736f]">
