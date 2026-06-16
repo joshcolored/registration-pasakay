@@ -319,20 +319,20 @@ export default function DriverMembershipPortalPage() {
   return (
     <main className="min-h-screen bg-[#f5f4ef] text-[#18211f]">
       <section className="border-b border-[#e5e2d8] bg-[#fbfcf9]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-5 sm:py-5">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-md border border-[#dfe5e1] bg-white p-1.5">
               <img src="/pasakay-logo.jpg" alt="PaSakay" className="h-full w-full rounded-sm object-contain" />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-lg font-black">PaSakay</p>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#66736f]">Driver Membership</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#66736f] sm:tracking-[0.16em]">Driver Membership</p>
             </div>
           </div>
           {user && (
             <button
               onClick={handleSignOut}
-              className="inline-flex items-center gap-2 rounded-md border border-[#dfe5e1] bg-white px-3 py-2 text-sm font-bold text-[#49534f] transition hover:bg-[#edf0eb]"
+              className="inline-flex shrink-0 items-center gap-2 rounded-md border border-[#dfe5e1] bg-white px-3 py-2 text-sm font-bold text-[#49534f] transition hover:bg-[#edf0eb]"
             >
               <LogOut className="h-4 w-4" />
               Sign out
@@ -341,7 +341,7 @@ export default function DriverMembershipPortalPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-8 px-5 py-10 lg:grid-cols-[0.95fr_1.05fr]">
+      <section className="mx-auto grid w-full max-w-6xl gap-8 overflow-hidden px-4 py-10 sm:px-5 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="space-y-6">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-[#1f6f68]">Driver portal</p>
@@ -379,16 +379,16 @@ export default function DriverMembershipPortalPage() {
           {user && (
             <div className="rounded-md border border-[#dfe5e1] bg-white p-5 shadow-sm">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#66736f]">Current status</p>
-              <div className="mt-3 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-2xl font-black capitalize text-[#18211f]">{displayedMembershipStatus}</p>
+              <div className="mt-3 flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between sm:gap-4">
+                <div className="min-w-0">
+                  <p className="max-w-full break-words text-2xl font-black capitalize text-[#18211f]">{displayedMembershipStatus}</p>
                   <p className="mt-1 text-sm text-[#66736f]">
                     {membershipStatus === 'active'
                       ? `Active until ${formatDate(activeUntil)}`
                       : 'Membership requests are reviewed by PaSakay Admin.'}
                   </p>
                 </div>
-                <span className="rounded-md bg-[#e8f4f2] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#1f6f68]">
+                <span className="max-w-full break-all rounded-md bg-[#e8f4f2] px-3 py-1 text-xs font-black uppercase tracking-[0.1em] text-[#1f6f68] sm:max-w-[55%] sm:tracking-[0.12em]">
                   {driverDisplayName}
                 </span>
               </div>
