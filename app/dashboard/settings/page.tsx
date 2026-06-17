@@ -6,7 +6,7 @@ import { ref, get, update } from 'firebase/database';
 import { database, auth } from '@/lib/firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updateEmail, sendEmailVerification } from 'firebase/auth';
 import { FareSettings, SupportSettings, AppSettings } from '@/types';
-import { Save, DollarSign, Phone, Mail, User, CreditCard, Upload, X, Edit, Facebook, Clock, Headphones, ImageIcon, Wallet, Server, Lock, Send, Eye, EyeOff, Percent } from 'lucide-react';
+import { Save, DollarSign, Phone, Mail, User, CreditCard, Upload, X, Edit, Facebook, Clock, Headphones, ImageIcon, Wallet, Server, Lock, Send, Eye, EyeOff, Percent, Store } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getStoredAdminSession, updateStoredAdminSession } from '@/lib/adminSession';
 
@@ -54,6 +54,10 @@ interface SmtpSettings {
 interface CommissionSettings {
   driverCommissionRate: number;
   merchantCommissionRate: number;
+}
+
+interface FeatureSettings {
+  merchantVapeEnabled: boolean;
 }
 
 export default function SettingsPage() {
@@ -150,6 +154,9 @@ export default function SettingsPage() {
   const [commissionSettings, setCommissionSettings] = useState<CommissionSettings>({
     driverCommissionRate: 0.1,
     merchantCommissionRate: 0.1,
+  });
+  const [featureSettings, setFeatureSettings] = useState<FeatureSettings>({
+    merchantVapeEnabled: true,
   });
 
   const parseFeatureLines = (value: string) =>
@@ -342,6 +349,15 @@ export default function SettingsPage() {
         setCommissionSettings({
           driverCommissionRate: Number(data.driverCommissionRate ?? 0.1),
           merchantCommissionRate: Number(data.merchantCommissionRate ?? 0.1),
+        });
+      }
+
+      const featuresRef = ref(database, 'settings/features');
+      const featuresSnapshot = await get(featuresRef);
+      if (featuresSnapshot.exists()) {
+        const data = featuresSnapshot.val();
+        setFeatureSettings({
+          merchantVapeEnabled: data.merchantVapeEnabled !== false,
         });
       }
 
@@ -871,6 +887,25 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error saving commission settings:', error);
       alert('Failed to save commission settings');
+    }
+    setSaving(false);
+  };
+
+  const handleSaveFeatureSettings = async () => {
+    if (!confirm('Save app feature settings?')) return;
+
+    setSaving(true);
+    try {
+      const featuresRef = ref(database, 'settings/features');
+      await update(featuresRef, {
+        merchantVapeEnabled: featureSettings.merchantVapeEnabled,
+        updatedAt: new Date().toISOString(),
+        updatedBy: adminUserId,
+      });
+      alert('Feature settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving feature settings:', error);
+      alert('Failed to save feature settings');
     }
     setSaving(false);
   };
@@ -1926,6 +1961,64 @@ export default function SettingsPage() {
                 >
                   <Save className="w-5 h-5" />
                   <span>{saving ? 'Saving...' : 'Save Fare Settings'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* App Feature Settings */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                <Store className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">App Features</h2>
+                <p className="text-sm text-gray-600">Enable or disable passenger app services</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div>
+                  <p className="text-sm font-bold text-black">Merchant / Vape Store</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Shows Merchant service, Vape Store category, and vape wishlist items in the app.
+                  </p>
+                  <p className={`text-xs font-bold mt-2 ${featureSettings.merchantVapeEnabled ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {featureSettings.merchantVapeEnabled ? 'ON' : 'OFF'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={featureSettings.merchantVapeEnabled}
+                  onClick={() =>
+                    setFeatureSettings({
+                      ...featureSettings,
+                      merchantVapeEnabled: !featureSettings.merchantVapeEnabled,
+                    })
+                  }
+                  className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition ${
+                    featureSettings.merchantVapeEnabled ? 'bg-emerald-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition ${
+                      featureSettings.merchantVapeEnabled ? 'translate-x-7' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="pt-4 border-t">
+                <button
+                  onClick={handleSaveFeatureSettings}
+                  disabled={saving}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  <Save className="w-5 h-5" />
+                  <span>{saving ? 'Saving...' : 'Save Feature Settings'}</span>
                 </button>
               </div>
             </div>
