@@ -582,6 +582,58 @@ export default function RegisterLandingPage() {
             </div>
           </div>
         </section>
+
+        <footer className="border-t border-[#dfe5e1] bg-[#10201e] text-white">
+          <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+            <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-start">
+              <div className="max-w-md">
+                <button
+                  type="button"
+                  onClick={() => router.push('/')}
+                  className="inline-flex items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#83ddd3]"
+                >
+                  <img
+                    src="/pasakay-logo.jpg"
+                    alt="Pasakay logo"
+                    className="h-11 w-11 rounded-md border border-white/15 bg-white object-cover"
+                  />
+                  <span>
+                    <span className="block text-lg font-bold leading-none">Pasakay</span>
+                    <span className="mt-1.5 block text-[10px] font-bold uppercase tracking-[0.18em] text-white/55">
+                      Partner registration
+                    </span>
+                  </span>
+                </button>
+                <p className="mt-4 text-sm leading-6 text-white/65">
+                  Local transportation, delivery, and commerce opportunities for Pasakay drivers and merchants.
+                </p>
+              </div>
+
+              <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
+                <a href="/" className="font-semibold text-white/70 transition hover:text-white">
+                  Home
+                </a>
+                <a href="/register/driver" className="font-semibold text-white/70 transition hover:text-white">
+                  Driver
+                </a>
+                <a href="/register/merchant" className="font-semibold text-white/70 transition hover:text-white">
+                  Merchant
+                </a>
+                <a href="/driver-membership" className="font-semibold text-white/70 transition hover:text-white">
+                  Membership
+                </a>
+                <a href="/privacy" className="font-semibold text-white/70 transition hover:text-white">
+                  Privacy
+                </a>
+              </nav>
+            </div>
+
+            <div className="mt-8 flex flex-col gap-2 border-t border-white/10 pt-5 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
+              <p>&copy; {new Date().getFullYear()} Pasakay. All rights reserved.</p>
+              <p>Built for local drivers, merchants, and communities.</p>
+            </div>
+          </div>
+        </footer>
       </div>
     </main>
   );
