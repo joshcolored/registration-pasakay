@@ -10,6 +10,7 @@ import {
   FileCheck,
   MapPin,
   Shield,
+  ShieldCheck,
   Smartphone,
   Store,
   Users,
@@ -517,6 +518,37 @@ export default function RegisterLandingPage() {
               </article>
             );
           })}
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
+          <div className="gsap-card overflow-hidden rounded-lg border border-[#153f3b] bg-[#12312e] text-white shadow-lg shadow-[#12312e]/15">
+            <div className="grid gap-6 px-5 py-6 sm:px-7 sm:py-7 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="flex min-w-0 items-start gap-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/10 text-[#83ddd3]">
+                  <ShieldCheck className="h-6 w-6" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#83ddd3]">
+                    Existing Pasakay drivers
+                  </p>
+                  <h2 className="mt-2 text-xl font-bold tracking-tight sm:text-2xl">
+                    Manage your driver membership
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">
+                    Sign in to activate, renew, or upgrade your membership through secure PayMongo QR Ph payment.
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="https://registration-pasakay.vercel.app/driver-membership"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-bold text-[#12312e] transition hover:-translate-y-0.5 hover:bg-[#e8f4f2] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#83ddd3] lg:w-auto"
+              >
+                Driver Membership
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
