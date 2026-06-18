@@ -541,7 +541,7 @@ export default function RegisterLandingPage() {
               </div>
 
               <a
-                href="https://registration-pasakay.vercel.app/driver-membership"
+                href="https://pasakay-reg.cc.cd/driver-membership"
                 className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-bold text-[#12312e] transition hover:-translate-y-0.5 hover:bg-[#e8f4f2] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#83ddd3] lg:w-auto"
               >
                 Driver Membership
