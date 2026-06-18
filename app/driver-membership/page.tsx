@@ -319,8 +319,8 @@ export default function DriverMembershipPortalPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f5f4ef] text-[#18211f]">
-      <section className="border-b border-[#e5e2d8] bg-[#fbfcf9]/90 backdrop-blur">
+    <main className="flex min-h-screen flex-col bg-[#f5f4ef] text-[#18211f]">
+      <section className="shrink-0 border-b border-[#e5e2d8] bg-[#fbfcf9]/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-5 sm:py-5">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-md border border-[#dfe5e1] bg-white p-1.5">
@@ -343,7 +343,7 @@ export default function DriverMembershipPortalPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-8 overflow-hidden px-4 py-10 sm:px-5 lg:grid-cols-[0.95fr_1.05fr]">
+      <section className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-8 px-4 py-10 sm:px-5 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
         <div className="space-y-6">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-[#1f6f68]">Driver portal</p>
@@ -533,8 +533,7 @@ export default function DriverMembershipPortalPage() {
         </div>
       </section>
 
-        {/* Footer here */}
-        <footer className="border-t border-[#dfe5e1] bg-[#10201e] text-white">
+      <footer className="shrink-0 border-t border-[#dfe5e1] bg-[#10201e] text-white">
           <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
             <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-start">
               <div className="max-w-md">
