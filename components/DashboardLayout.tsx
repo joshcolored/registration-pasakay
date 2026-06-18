@@ -62,7 +62,7 @@ const navGroups = [
     items: [
       { name: 'Merchants', href: '/dashboard/merchants', icon: Store },
       { name: 'Food Orders', href: '/dashboard/food-orders', icon: Truck },
-      { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
+      // { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
       { name: 'Driver Memberships', href: '/dashboard/driver-memberships', icon: BadgeCheck },
     ],
   },
@@ -70,7 +70,7 @@ const navGroups = [
     label: 'System',
     items: [
       { name: 'Deleted Accounts', href: '/dashboard/deleted-accounts', icon: ShieldCheck },
-      { name: 'App Versions', href: '/dashboard/app-versions', icon: Smartphone },
+      // { name: 'App Versions', href: '/dashboard/app-versions', icon: Smartphone },
       { name: 'Version Notifications', href: '/dashboard/app-version-notifications', icon: BellRing },
       { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     ],
