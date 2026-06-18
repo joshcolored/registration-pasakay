@@ -5,10 +5,13 @@ import { useRouter } from 'next/navigation';
 import { ref, onValue, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { User } from '@/types';
-import { Search, UserX, UserCheck, Mail, Phone, Calendar, Trash2 } from 'lucide-react';
+import { Search, UserX, UserCheck, Mail, Phone, Calendar, Trash2, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import PasakayLoader from '@/components/PasakayLoader';
 import { getStoredAdminSession } from '@/lib/adminSession';
+
+type SortKey = 'name' | 'uid' | 'contact' | 'rating' | 'totalTrips' | 'status' | 'joined';
+type SortDirection = 'asc' | 'desc';
 
 export default function UsersPage() {
   const router = useRouter();
@@ -18,6 +21,8 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>('joined');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   useEffect(() => {
     // Check if admin is logged in
@@ -99,8 +104,77 @@ export default function UsersPage() {
       );
     }
 
+    const getSortValue = (user: User) => {
+      switch (sortKey) {
+        case 'name':
+          return user.name || '';
+        case 'uid':
+          return user.userId || '';
+        case 'contact':
+          return `${user.email || ''} ${user.phoneNumber || ''}`;
+        case 'rating':
+          return Number(user.rating || 0);
+        case 'totalTrips':
+          return Number(user.totalTrips || 0);
+        case 'status':
+          return user.isActive ? 1 : 0;
+        case 'joined': {
+          const joined = typeof user.createdAt === 'number' ? user.createdAt : Date.parse(String(user.createdAt || ''));
+          return Number.isNaN(joined) ? 0 : joined;
+        }
+      }
+    };
+
+    filtered = [...filtered].sort((a, b) => {
+      const aValue = getSortValue(a);
+      const bValue = getSortValue(b);
+      const comparison =
+        typeof aValue === 'number' && typeof bValue === 'number'
+          ? aValue - bValue
+          : String(aValue).localeCompare(String(bValue), undefined, {
+              numeric: true,
+              sensitivity: 'base',
+            });
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
     setFilteredUsers(filtered);
-  }, [searchQuery, filterStatus, users]);
+  }, [searchQuery, filterStatus, sortDirection, sortKey, users]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(current => (current === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection('asc');
+  };
+
+  const renderSortableHeader = (label: string, key: SortKey) => {
+    const isActive = sortKey === key;
+
+    return (
+      <button
+        type="button"
+        onClick={() => handleSort(key)}
+        className="inline-flex items-center gap-1.5 rounded-md text-left font-bold text-black transition hover:text-[#1f6f68] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f6f68]/25"
+        aria-label={`Sort by ${label} ${isActive && sortDirection === 'asc' ? 'descending' : 'ascending'}`}
+      >
+        <span>{label}</span>
+        {isActive ? (
+          sortDirection === 'asc' ? (
+            <ArrowUp className="h-4 w-4 text-[#1f6f68]" />
+          ) : (
+            <ArrowDown className="h-4 w-4 text-[#1f6f68]" />
+          )
+        ) : (
+          <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+        )}
+      </button>
+    );
+  };
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('en-PH', {
@@ -235,13 +309,13 @@ export default function UsersPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b-2 border-gray-300">
                 <tr>
-                  <th className="text-left py-4 px-6 font-bold text-black">Name</th>
-                  <th className="text-left py-4 px-6 font-bold text-black">UID</th>
-                  <th className="text-left py-4 px-6 font-bold text-black">Contact</th>
-                  <th className="text-left py-4 px-6 font-bold text-black">Rating</th>
-                  <th className="text-left py-4 px-6 font-bold text-black">Total Trips</th>
-                  <th className="text-left py-4 px-6 font-bold text-black">Status</th>
-                  <th className="text-left py-4 px-6 font-bold text-black">Joined</th>
+                  <th className="text-left py-4 px-6">{renderSortableHeader('Name', 'name')}</th>
+                  <th className="text-left py-4 px-6">{renderSortableHeader('UID', 'uid')}</th>
+                  <th className="text-left py-4 px-6">{renderSortableHeader('Contact', 'contact')}</th>
+                  <th className="text-left py-4 px-6">{renderSortableHeader('Rating', 'rating')}</th>
+                  <th className="text-left py-4 px-6">{renderSortableHeader('Total Trips', 'totalTrips')}</th>
+                  <th className="text-left py-4 px-6">{renderSortableHeader('Status', 'status')}</th>
+                  <th className="text-left py-4 px-6">{renderSortableHeader('Joined', 'joined')}</th>
                   <th className="text-left py-4 px-6 font-bold text-black">Actions</th>
                 </tr>
               </thead>
