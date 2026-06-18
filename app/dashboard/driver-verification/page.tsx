@@ -386,23 +386,18 @@ export default function DriverVerificationPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="admin-modern-page">
+        <div className="admin-modern-header">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Driver Verification</h1>
-            <p className="text-gray-600">Review and approve driver applications</p>
+            <p className="admin-modern-eyebrow">Driver verification</p>
+            <h1>Driver Application Queue</h1>
+            <p>Review identity, vehicle documents, OCR results, and face checks before approval.</p>
           </div>
-          <div className="flex items-center space-x-2 bg-green-100 px-4 py-2 rounded-full">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-            </span>
-            <span className="text-green-700 font-semibold text-sm">Live Updates</span>
-          </div>
+          <div className="admin-modern-live">Live updates enabled</div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="admin-modern-stats grid grid-cols-1 md:grid-cols-3">
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -441,7 +436,7 @@ export default function DriverVerificationPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="admin-modern-toolbar">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -450,7 +445,7 @@ export default function DriverVerificationPage() {
                 placeholder="Search by name, vehicle, or license..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold placeholder-gray-400"
+                className="w-full pl-10 pr-4 py-2 outline-none"
               />
             </div>
 
@@ -458,7 +453,7 @@ export default function DriverVerificationPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as any)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
+                className="w-full px-4 py-2 outline-none"
               >
                 <option value="pending">Pending Only</option>
                 <option value="all">All Applications</option>
@@ -470,9 +465,9 @@ export default function DriverVerificationPage() {
         </div>
 
         {/* Drivers Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="admin-modern-table">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[1180px]">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left py-4 px-6 font-semibold text-gray-700">Driver</th>
@@ -618,7 +613,7 @@ export default function DriverVerificationPage() {
         </div>
 
         {/* Results Count */}
-        <div className="mt-4 text-center text-gray-600">
+        <div className="mt-4 text-center text-sm font-semibold text-[#66736f]">
           Showing {filteredDrivers.length} of {drivers.length} applications
         </div>
       </div>

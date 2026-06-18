@@ -104,6 +104,204 @@ button:disabled {
   border-radius: 8px;
 }
 
+.admin-modern-page {
+  min-height: calc(100vh - 65px);
+  padding: 24px;
+  color: #18211f;
+  background-image:
+    linear-gradient(rgba(31, 111, 104, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 111, 104, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.admin-modern-header {
+  display: flex;
+  margin-bottom: 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-modern-eyebrow {
+  color: #1f6f68;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.admin-modern-header h1 {
+  margin-top: 8px;
+  color: #18211f;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.admin-modern-header p:not(.admin-modern-eyebrow) {
+  margin-top: 8px;
+  max-width: 720px;
+  color: #66736f;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.admin-modern-live {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #cfe4df;
+  border-radius: 6px;
+  background: #eff8f5;
+  padding: 12px 16px;
+  color: #1f6f68;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.admin-modern-live::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #1f9d78;
+  content: "";
+}
+
+.admin-modern-stats {
+  display: grid;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.admin-modern-stats > div,
+.admin-modern-stat {
+  min-height: 90px;
+  border: 1px solid #dfe5e1 !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  padding: 16px !important;
+  box-shadow: 0 1px 2px rgba(24, 33, 31, 0.07) !important;
+}
+
+.admin-modern-stats > div > div {
+  height: 100%;
+}
+
+.admin-modern-stats p:first-child,
+.admin-modern-stat-label {
+  margin: 0 !important;
+  color: #66736f !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-modern-stats p.text-3xl,
+.admin-modern-stats p.text-2xl,
+.admin-modern-stat-value {
+  margin-top: 8px !important;
+  color: #18211f !important;
+  font-size: 24px !important;
+  font-weight: 900 !important;
+  line-height: 1.1;
+}
+
+.admin-modern-stats svg {
+  width: 24px !important;
+  height: 24px !important;
+  color: #1f6f68 !important;
+}
+
+.admin-modern-toolbar {
+  margin-bottom: 24px;
+  border: 1px solid #dfe5e1 !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  padding: 16px !important;
+  box-shadow: 0 1px 2px rgba(24, 33, 31, 0.07) !important;
+}
+
+.admin-modern-toolbar input,
+.admin-modern-toolbar select {
+  min-height: 48px;
+  border: 1px solid #dfe5e1 !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  color: #18211f !important;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-modern-toolbar input:focus,
+.admin-modern-toolbar select:focus {
+  border-color: #1f6f68 !important;
+  box-shadow: 0 0 0 3px rgba(31, 111, 104, 0.1) !important;
+}
+
+.admin-modern-table {
+  overflow: hidden;
+  border: 1px solid #dfe5e1 !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(24, 33, 31, 0.07) !important;
+}
+
+.admin-modern-table table {
+  width: 100%;
+}
+
+.admin-modern-table thead {
+  border-bottom: 1px solid #dfe5e1 !important;
+  background: #f6f8f5 !important;
+}
+
+.admin-modern-table th {
+  padding: 16px 20px !important;
+  color: #66736f !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.admin-modern-table th button {
+  color: inherit !important;
+  font-size: inherit;
+  font-weight: inherit !important;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.admin-modern-table td {
+  padding: 16px 20px !important;
+  color: #49534f;
+  font-size: 14px;
+}
+
+.admin-modern-table tbody {
+  divide-y: 1px solid #edf0eb;
+}
+
+.admin-modern-table tbody tr {
+  border-color: #edf0eb !important;
+}
+
+.admin-modern-table tbody tr:hover {
+  background: #f9faf7 !important;
+}
+
+.admin-modern-section {
+  border: 1px solid #dfe5e1 !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(24, 33, 31, 0.07) !important;
+}
+
 .partner-form {
   min-height: 100vh;
   color: var(--foreground);
@@ -211,5 +409,19 @@ button:disabled {
 
   .benefit-marquee-track {
     padding-inline: 20px;
+  }
+
+  .admin-modern-page {
+    padding: 16px;
+  }
+
+  .admin-modern-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-modern-live {
+    min-height: 40px;
+    padding: 9px 12px;
   }
 }

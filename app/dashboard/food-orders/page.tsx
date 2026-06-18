@@ -6,7 +6,6 @@ import DashboardLayout from '@/components/DashboardLayout';
 import PasakayLoader from '@/components/PasakayLoader';
 import { database } from '@/lib/firebase';
 import { ref, onValue, off } from 'firebase/database';
-import Link from 'next/link';
 import { getStoredAdminSession } from '@/lib/adminSession';
 import {
   Truck,
@@ -327,84 +326,76 @@ export default function FoodOrdersPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="admin-modern-page">
+        <div className="admin-modern-header">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Food Orders</h1>
-            <p className="text-gray-600">Commission and payouts for delivered orders</p>
+            <p className="admin-modern-eyebrow">Food orders</p>
+            <h1>Food Order Overview</h1>
+            <p>Monitor delivered orders, merchant commissions, delivery fees, and driver payouts.</p>
           </div>
-          <Link
-            href="/dashboard"
-            className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
-          >
-            <span>Back to Dashboard</span>
-          </Link>
+          <div className="admin-modern-live">Live updates enabled</div>
+        </div>
+
+        {/* Summary cards */}
+        <div className="admin-modern-stats grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard
+            icon={<Truck className="w-5 h-5" />}
+            label="Delivered Orders"
+            value={deliveredCount.toString()}
+          />
+          <SummaryCard
+            icon={<Wallet className="w-5 h-5" />}
+            label="Driver Payout"
+            value={formatCurrency(payoutTotal)}
+          />
+          <SummaryCard
+            icon={<Building2 className="w-5 h-5" />}
+            label="Food Commission"
+            value={formatCurrency(platformTotal)}
+          />
+          <SummaryCard
+            icon={<DollarSign className="w-5 h-5" />}
+            label="Total Delivery Fee"
+            value={formatCurrency(deliveryFeeTotal)}
+          />
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 flex flex-wrap gap-3 items-end">
+        <div className="admin-modern-toolbar flex flex-wrap items-end gap-4">
           <div className="flex items-center space-x-2">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <span className="text-sm font-semibold text-gray-700">Filter by Date</span>
+            <Filter className="h-5 w-5 text-[#1f6f68]" />
+            <span className="text-sm font-black uppercase tracking-[0.12em] text-[#66736f]">Date range</span>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-1 flex-wrap gap-3">
             <div>
-              <label className="text-xs text-gray-500">Start</label>
+              <label className="mb-1 block text-xs font-bold text-[#66736f]">Start</label>
               <input
                 type="date"
                 value={dateRange.start || ''}
                 onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value || undefined }))}
-                className="w-40 px-3 py-2 border rounded-lg text-sm"
+                className="w-44 px-3 py-2"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500">End</label>
+              <label className="mb-1 block text-xs font-bold text-[#66736f]">End</label>
               <input
                 type="date"
                 value={dateRange.end || ''}
                 onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value || undefined }))}
-                className="w-40 px-3 py-2 border rounded-lg text-sm"
+                className="w-44 px-3 py-2"
               />
             </div>
             <button
               onClick={() => setDateRange({})}
-              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
+              className="mt-5 min-h-12 rounded-md border border-[#dfe5e1] px-4 py-2 text-sm font-black text-[#49534f] hover:bg-[#f6f8f5]"
             >
               Clear
             </button>
           </div>
         </div>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <SummaryCard
-            icon={<Truck className="w-5 h-5" />}
-            label="Delivered Orders"
-            value={deliveredCount.toString()}
-            color="bg-blue-100 text-blue-800"
-          />
-          <SummaryCard
-            icon={<Wallet className="w-5 h-5" />}
-            label="Driver Payout"
-            value={formatCurrency(payoutTotal)}
-            color="bg-green-100 text-green-800"
-          />
-          <SummaryCard
-            icon={<Building2 className="w-5 h-5" />}
-            label="Food Commission"
-            value={formatCurrency(platformTotal)}
-            color="bg-amber-100 text-amber-800"
-          />
-          <SummaryCard
-            icon={<DollarSign className="w-5 h-5" />}
-            label="Total Delivery Fee"
-            value={formatCurrency(deliveryFeeTotal)}
-            color="bg-purple-100 text-purple-800"
-          />
-        </div>
-
         {/* Merchant item summary */}
-        <div className="bg-white rounded-lg shadow p-6 space-y-4">
+        <div className="admin-modern-section mb-6 space-y-4 p-5">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Merchant Item Sales (Delivered)</h2>
             <p className="text-sm text-gray-600">Item totals and commission per merchant</p>
@@ -484,8 +475,8 @@ export default function FoodOrdersPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="w-full">
+        <div className="admin-modern-table overflow-x-auto">
+          <table className="w-full min-w-[1500px]">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Order ID</th>
@@ -594,22 +585,18 @@ function SummaryCard({
   icon,
   label,
   value,
-  color,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
-  color: string;
 }) {
   return (
-    <div className={`p-4 rounded-lg shadow bg-white border border-gray-100 flex items-start space-x-3`}>
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${color}`}>
-        {icon}
-      </div>
+    <div className="flex items-center justify-between gap-3">
       <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-xl font-bold text-gray-800">{value}</p>
+        <p>{label}</p>
+        <p className="text-2xl">{value}</p>
       </div>
+      <div className="text-[#1f6f68]">{icon}</div>
     </div>
   );
 }

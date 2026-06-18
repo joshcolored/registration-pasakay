@@ -221,23 +221,18 @@ export default function UsersPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="admin-modern-page">
+        <div className="admin-modern-header">
           <div>
-            <h1 className="text-3xl font-bold text-black mb-2">Passenger Management</h1>
-            <p className="text-black font-semibold">View and manage all passenger accounts</p>
+            <p className="admin-modern-eyebrow">Passengers</p>
+            <h1>Passenger Management</h1>
+            <p>View, search, and manage all passenger accounts in real time.</p>
           </div>
-          <div className="flex items-center space-x-2 bg-green-100 px-4 py-2 rounded-full">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-            </span>
-            <span className="text-green-700 font-semibold text-sm">Live Updates</span>
-          </div>
+          <div className="admin-modern-live">Live updates enabled</div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="admin-modern-stats grid grid-cols-1 md:grid-cols-3">
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -274,7 +269,7 @@ export default function UsersPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="admin-modern-toolbar">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Search */}
             <div className="relative">
@@ -284,7 +279,7 @@ export default function UsersPage() {
                 placeholder="Search by name, email, or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold placeholder-gray-400"
+                className="w-full pl-10 pr-4 py-2 outline-none"
               />
             </div>
 
@@ -293,7 +288,7 @@ export default function UsersPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as any)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black font-semibold"
+                className="w-full px-4 py-2 outline-none"
               >
                 <option value="all">All Users</option>
                 <option value="active">Active Only</option>
@@ -304,7 +299,7 @@ export default function UsersPage() {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="admin-modern-table">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b-2 border-gray-300">
@@ -416,7 +411,7 @@ export default function UsersPage() {
         </div>
 
         {/* Results Count */}
-        <div className="mt-4 text-center text-gray-600">
+          <div className="mt-4 text-center text-sm font-semibold text-[#66736f]">
           Showing {filteredUsers.length} of {users.length} passengers
         </div>
       </div>
