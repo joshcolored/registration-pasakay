@@ -168,6 +168,29 @@ button:disabled {
   }
 }
 
+@keyframes pasakay-loader-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0) scale(0.82);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1);
+  }
+}
+
+.animate-pasakay-dot {
+  animation: pasakay-loader-dot 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pasakay-dot {
+    animation-duration: 2.2s;
+  }
+}
+
 @media (max-width: 640px) {
   .admin-page {
     padding: 16px;

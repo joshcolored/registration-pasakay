@@ -24,6 +24,7 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendEmailVerificat
 import type { User as FirebaseUser } from 'firebase/auth';
 import { getDatabase, ref, update } from 'firebase/database';
 import { useRegisterScrollMotion } from '@/components/RegisterMotion';
+import PasakayLoader from '@/components/PasakayLoader';
 import { createAdminNotification } from '@/lib/adminNotifications';
 
 // Initialize Firebase
@@ -1106,7 +1107,7 @@ export default function MerchantRegistrationPage() {
             >
               {isLoading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <PasakayLoader size="button" label="Registering merchant" />
                   Registering...
                 </>
               ) : (

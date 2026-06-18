@@ -8,6 +8,7 @@ import { EmailAuthProvider, reauthenticateWithCredential, updateEmail, sendEmail
 import { FareSettings, SupportSettings, AppSettings } from '@/types';
 import { Save, DollarSign, Phone, Mail, User, CreditCard, Upload, X, Edit, Facebook, Clock, Headphones, ImageIcon, Wallet, Server, Lock, Send, Eye, EyeOff, Percent, Store } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 import { getStoredAdminSession, updateStoredAdminSession } from '@/lib/adminSession';
 
 interface AdminProfile {
@@ -1157,7 +1158,7 @@ export default function SettingsPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <PasakayLoader size="page" label="Loading settings" />
         </div>
       </DashboardLayout>
     );
@@ -1241,8 +1242,8 @@ export default function SettingsPage() {
                       disabled={uploadingLogo}
                       className="flex items-center justify-center space-x-2 bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition disabled:opacity-50"
                     >
-                      <Upload className="w-4 h-4" />
-                      <span className="font-semibold">{uploadingLogo ? 'Uploading...' : 'Upload'}</span>
+                      {uploadingLogo ? <PasakayLoader size="button" label="Uploading logo" /> : <Upload className="w-4 h-4" />}
+                      <span className="font-semibold">{uploadingLogo ? 'Uploading' : 'Upload'}</span>
                     </button>
                     <button
                       onClick={() => {
@@ -1458,8 +1459,8 @@ export default function SettingsPage() {
                     disabled={uploading}
                     className="flex items-center justify-center space-x-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition disabled:opacity-50"
                   >
-                    <Upload className="w-4 h-4" />
-                    <span className="font-semibold">{uploading ? 'Uploading...' : 'Upload'}</span>
+                    {uploading ? <PasakayLoader size="button" label="Uploading QR code" /> : <Upload className="w-4 h-4" />}
+                    <span className="font-semibold">{uploading ? 'Uploading' : 'Upload'}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -1621,8 +1622,8 @@ export default function SettingsPage() {
                           disabled={uploadingPlanImage === 'one'}
                           className="flex items-center justify-center space-x-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition disabled:opacity-50"
                         >
-                          <Upload className="w-4 h-4" />
-                          <span className="font-semibold">{uploadingPlanImage === 'one' ? 'Uploading...' : 'Upload'}</span>
+                          {uploadingPlanImage === 'one' ? <PasakayLoader size="button" label="Uploading one month plan image" /> : <Upload className="w-4 h-4" />}
+                          <span className="font-semibold">{uploadingPlanImage === 'one' ? 'Uploading' : 'Upload'}</span>
                         </button>
                         <button
                           onClick={() => {
@@ -1749,8 +1750,8 @@ export default function SettingsPage() {
                           disabled={uploadingPlanImage === 'three'}
                           className="flex items-center justify-center space-x-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition disabled:opacity-50"
                         >
-                          <Upload className="w-4 h-4" />
-                          <span className="font-semibold">{uploadingPlanImage === 'three' ? 'Uploading...' : 'Upload'}</span>
+                          {uploadingPlanImage === 'three' ? <PasakayLoader size="button" label="Uploading three month plan image" /> : <Upload className="w-4 h-4" />}
+                          <span className="font-semibold">{uploadingPlanImage === 'three' ? 'Uploading' : 'Upload'}</span>
                         </button>
                         <button
                           onClick={() => {
@@ -2258,7 +2259,9 @@ export default function SettingsPage() {
           </div>
 
           {smtpLoading ? (
-            <div className="text-sm text-gray-600">Loading SMTP settings...</div>
+            <div className="flex min-h-40 items-center justify-center">
+              <PasakayLoader size="panel" label="Loading SMTP settings" />
+            </div>
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

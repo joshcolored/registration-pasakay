@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 import { database } from '@/lib/firebase';
 import { ref, onValue, off } from 'firebase/database';
 import Link from 'next/link';
@@ -505,7 +506,7 @@ export default function FoodOrdersPage() {
               {loading ? (
                 <tr>
                   <td colSpan={11} className="text-center py-8 text-gray-500 text-sm">
-                    Loading...
+                    <PasakayLoader size="panel" label="Loading food orders" />
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (

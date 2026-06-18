@@ -12,6 +12,7 @@ import {
   AlertCircle, X, Trash2
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 
 interface Merchant {
   uid: string;
@@ -468,7 +469,7 @@ export default function MerchantsPage() {
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            <PasakayLoader size="panel" label="Loading merchants" />
           </div>
         ) : filteredMerchants.length === 0 ? (
           <div className="text-center py-16">
@@ -725,7 +726,7 @@ export default function MerchantsPage() {
                     >
                       {deletingMerchantId === merchant.uid ? (
                         <>
-                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                          <PasakayLoader size="button" label="Deleting merchant" />
                           <span>Deleting...</span>
                         </>
                       ) : (

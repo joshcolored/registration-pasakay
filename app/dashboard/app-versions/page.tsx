@@ -5,6 +5,7 @@ import { ref, onValue, set } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 import { Smartphone, Download, Save, AlertCircle, CheckCircle, Info, Bell, Send } from 'lucide-react';
 import { getStoredAdminSession } from '@/lib/adminSession';
 
@@ -305,7 +306,7 @@ export default function AppVersionsPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <PasakayLoader size="panel" label="Loading app versions" />
         </div>
       </DashboardLayout>
     );

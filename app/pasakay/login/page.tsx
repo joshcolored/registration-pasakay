@@ -7,6 +7,7 @@ import { get, off, onValue, ref } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 import { createAdminSession, saveAdminSession } from '@/lib/adminSession';
 import { useRegisterScrollMotion } from '@/components/RegisterMotion';
+import PasakayLoader from '@/components/PasakayLoader';
 import {
   CheckCircle,
   Eye,
@@ -478,7 +479,7 @@ export default function LoginPage() {
                       >
                         {loading ? (
                           <>
-                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            <PasakayLoader size="button" label="Signing in" />
                             <span>Signing in...</span>
                           </>
                         ) : (
@@ -538,7 +539,7 @@ export default function LoginPage() {
                       >
                         {otpLoading ? (
                           <>
-                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            <PasakayLoader size="button" label="Verifying code" />
                             <span>Verifying...</span>
                           </>
                         ) : (

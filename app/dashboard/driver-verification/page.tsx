@@ -7,6 +7,7 @@ import { database } from '@/lib/firebase';
 import { User, Driver } from '@/types';
 import { Search, CheckCircle, XCircle, Eye, Clock, ShieldCheck } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 import { createAdminNotification } from '@/lib/adminNotifications';
 import { getStoredAdminSession } from '@/lib/adminSession';
 
@@ -377,7 +378,7 @@ export default function DriverVerificationPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <PasakayLoader size="page" label="Loading driver verification" />
         </div>
       </DashboardLayout>
     );

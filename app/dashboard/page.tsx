@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import StatsCard from '@/components/StatsCard';
+import PasakayLoader from '@/components/PasakayLoader';
 import { getStoredAdminSession } from '@/lib/adminSession';
 
 export default function DashboardPage() {
@@ -228,7 +229,7 @@ export default function DashboardPage() {
     return (
       <DashboardLayout>
         <div className="flex h-screen items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#d8d4c8] border-t-[#1f6f68]" />
+          <PasakayLoader size="page" label="Loading dashboard" />
         </div>
       </DashboardLayout>
     );

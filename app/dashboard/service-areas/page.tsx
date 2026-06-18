@@ -18,6 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 import { getStoredAdminSession } from '@/lib/adminSession';
 
 interface LatLngPoint {
@@ -408,7 +409,7 @@ export default function ServiceAreasPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <PasakayLoader size="page" label="Loading service areas" />
         </div>
       </DashboardLayout>
     );
@@ -429,7 +430,7 @@ export default function ServiceAreasPage() {
               disabled={loading}
               className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? <PasakayLoader size="button" label="Refreshing service areas" /> : <RefreshCw className="w-4 h-4" />}
               <span className="text-gray-700 font-medium">Refresh</span>
             </button>
             <button

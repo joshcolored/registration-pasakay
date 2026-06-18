@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 import { auth } from '@/lib/firebase';
 import { getStoredAdminSession } from '@/lib/adminSession';
 
@@ -294,7 +295,7 @@ export default function DriverMembershipsPage() {
     return (
       <DashboardLayout>
         <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#cfe4df] border-t-[#1f6f68]" />
+          <PasakayLoader size="page" label="Loading memberships" />
         </div>
       </DashboardLayout>
     );

@@ -9,6 +9,7 @@ import { getStoredAdminSession } from '@/lib/adminSession';
 import { Payment } from '@/types';
 import { Search, CheckCircle, XCircle, Eye, Clock, DollarSign } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 
 type PaymentStatus = 'pending' | 'approved' | 'rejected';
 
@@ -321,7 +322,7 @@ export default function PaymentsPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <PasakayLoader size="page" label="Loading payments" />
         </div>
       </DashboardLayout>
     );

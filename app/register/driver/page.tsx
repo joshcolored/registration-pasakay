@@ -19,6 +19,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { getDatabase, get, ref, update } from 'firebase/database';
 import { useRegisterScrollMotion } from '@/components/RegisterMotion';
 import { createAdminNotification } from '@/lib/adminNotifications';
+import PasakayLoader from '@/components/PasakayLoader';
 
 // Initialize Firebase (reuse from env config)
 if (!getApps().length) {
@@ -1116,7 +1117,7 @@ export default function DriverRegistrationPage() {
                   className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-sm font-semibold text-[#18211f] transition-all hover:border-[#1f6f68]/50 hover:bg-[#1f6f68]/5 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
                 >
                   {socialAuthLoading === 'apple' ? (
-                    <span className="h-4 w-4 rounded-full border-2 border-[#1f6f68] border-t-transparent animate-spin" />
+                    <PasakayLoader size="button" label="Connecting Apple ID" />
                   ) : (
                     <Apple className="h-5 w-5" />
                   )}
@@ -1129,7 +1130,7 @@ export default function DriverRegistrationPage() {
                   className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-sm font-semibold text-[#18211f] transition-all hover:border-[#1f6f68]/50 hover:bg-[#1f6f68]/5 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
                 >
                   {socialAuthLoading === 'google' ? (
-                    <span className="h-4 w-4 rounded-full border-2 border-[#1f6f68] border-t-transparent animate-spin" />
+                    <PasakayLoader size="button" label="Connecting Google" />
                   ) : (
                     <Mail className="h-5 w-5" />
                   )}
@@ -1142,7 +1143,7 @@ export default function DriverRegistrationPage() {
                   className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d9d4c6] bg-white px-4 py-3 text-sm font-semibold text-[#18211f] transition-all hover:border-[#1f6f68]/50 hover:bg-[#1f6f68]/5 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
                 >
                   {socialAuthLoading === 'facebook' ? (
-                    <span className="h-4 w-4 rounded-full border-2 border-[#1f6f68] border-t-transparent animate-spin" />
+                    <PasakayLoader size="button" label="Connecting Facebook" />
                   ) : (
                     <Facebook className="h-5 w-5" />
                   )}
@@ -1364,9 +1365,14 @@ export default function DriverRegistrationPage() {
                           <p className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-1">
                             <CheckCircle className="w-3.5 h-3.5" /> Checked (Click to Replace)
                           </p>
-                          <p className="mt-2 text-[10px] font-semibold text-[#66736f]">
-                            {orCrOcrLoading ? `Reading OR/CR text... ${orCrOcrProgress}%` : 'OR/CR uploaded'}
-                          </p>
+                          {orCrOcrLoading ? (
+                            <div className="mt-2 flex items-center justify-center gap-2 text-[10px] font-semibold text-[#66736f]">
+                              <PasakayLoader size="button" label="Reading OR/CR text" />
+                              <span>Reading OR/CR text {orCrOcrProgress}%</span>
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-[10px] font-semibold text-[#66736f]">OR/CR uploaded</p>
+                          )}
                         </div>
                       ) : (
                         <div className="py-4">
@@ -1389,15 +1395,20 @@ export default function DriverRegistrationPage() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <span className="font-bold">OR/CR OCR</span>
-                        <span className="font-black">
-                          {orCrOcrLoading || orCrOcrStatus === 'checking'
-                            ? `${orCrOcrProgress}%`
-                            : orCrOcrStatus === 'matched'
+                        {orCrOcrLoading || orCrOcrStatus === 'checking' ? (
+                          <span className="flex items-center gap-2 font-black">
+                            <PasakayLoader size="button" label="Checking OR/CR" />
+                            {orCrOcrProgress}%
+                          </span>
+                        ) : (
+                          <span className="font-black">
+                            {orCrOcrStatus === 'matched'
                               ? 'Matched'
                               : orCrOcrStatus === 'mismatch'
                                 ? 'Mismatch'
                                 : 'Review'}
-                        </span>
+                          </span>
+                        )}
                       </div>
                       {orCrOcrMessage && (
                         <p className="mt-1 leading-relaxed">{orCrOcrMessage}</p>
@@ -1503,13 +1514,16 @@ export default function DriverRegistrationPage() {
                       >
                         <div className="flex items-center justify-between gap-3">
                           <span className="font-bold">Face Match</span>
-                          <span className="text-sm font-black">
-                            {faceMatchLoading || faceMatchStatus === 'checking'
-                              ? 'Checking...'
-                              : faceMatchScore === null
-                                ? 'Manual Review'
-                                : `${faceMatchScore}%`}
-                          </span>
+                          {faceMatchLoading || faceMatchStatus === 'checking' ? (
+                            <span className="flex items-center gap-2 text-sm font-black">
+                              <PasakayLoader size="button" label="Checking face match" />
+                              Checking
+                            </span>
+                          ) : (
+                            <span className="text-sm font-black">
+                              {faceMatchScore === null ? 'Manual Review' : `${faceMatchScore}%`}
+                            </span>
+                          )}
                         </div>
                         {faceMatchMessage && (
                           <p className="mt-1 leading-relaxed">{faceMatchMessage}</p>
@@ -1605,7 +1619,7 @@ export default function DriverRegistrationPage() {
             >
               {isLoading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <PasakayLoader size="button" label="Registering driver" />
                   Registering...
                 </>
               ) : (

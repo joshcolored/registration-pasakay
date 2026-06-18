@@ -7,6 +7,7 @@ import { database } from '@/lib/firebase';
 import { User, Driver } from '@/types';
 import { Search, Car, UserCheck, UserX, Mail, Phone, Calendar, MapPin, XCircle, RotateCcw, Trash2 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 import { getStoredAdminSession } from '@/lib/adminSession';
 
 interface DriverWithUser extends Driver {
@@ -533,7 +534,7 @@ export default function DriversPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <PasakayLoader size="page" label="Loading drivers" />
         </div>
       </DashboardLayout>
     );
@@ -736,7 +737,7 @@ export default function DriversPage() {
                             >
                               {expiringDriverId === driver.driverId ? (
                                 <>
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                  <PasakayLoader size="button" label="Expiring membership" />
                                   <span>Expiring...</span>
                                 </>
                               ) : (
@@ -764,7 +765,7 @@ export default function DriversPage() {
                             >
                               {restoringDriverId === driver.driverId ? (
                                 <>
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                  <PasakayLoader size="button" label="Restoring membership" />
                                   <span>Restoring...</span>
                                 </>
                               ) : (
@@ -783,7 +784,7 @@ export default function DriversPage() {
                           >
                             {deletingDriverId === driver.driverId ? (
                               <>
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                <PasakayLoader size="button" label="Deleting driver" />
                                 <span>Deleting...</span>
                               </>
                             ) : (

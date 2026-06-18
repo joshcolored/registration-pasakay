@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { equalTo, get, orderByChild, query, ref, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 import { getStoredAdminSession } from '@/lib/adminSession';
 import { AlertTriangle, CalendarClock, Mail, RotateCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 
@@ -217,7 +218,7 @@ export default function DeletedAccountsPage() {
             >
               {loading ? (
                 <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                  <PasakayLoader size="button" label="Searching deleted accounts" />
                   Searching...
                 </>
               ) : (
@@ -299,7 +300,7 @@ export default function DeletedAccountsPage() {
                         >
                           {removingId === marker.id ? (
                             <>
-                              <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                              <PasakayLoader size="button" label="Removing deletion block" />
                               Removing...
                             </>
                           ) : (

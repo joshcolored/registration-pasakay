@@ -7,6 +7,7 @@ import { database } from '@/lib/firebase';
 import { User } from '@/types';
 import { Search, UserX, UserCheck, Mail, Phone, Calendar, Trash2 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import PasakayLoader from '@/components/PasakayLoader';
 import { getStoredAdminSession } from '@/lib/adminSession';
 
 export default function UsersPage() {
@@ -138,7 +139,7 @@ export default function UsersPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <PasakayLoader size="page" label="Loading passengers" />
         </div>
       </DashboardLayout>
     );
@@ -321,7 +322,7 @@ export default function UsersPage() {
                         >
                           {deletingUserId === user.userId ? (
                             <>
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              <PasakayLoader size="button" label="Deleting passenger" />
                               <span>Deleting...</span>
                             </>
                           ) : (

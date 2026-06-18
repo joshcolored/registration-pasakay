@@ -10,7 +10,6 @@ import {
   CheckCircle,
   ExternalLink,
   Facebook,
-  Loader2,
   LogOut,
   Mail,
   ShieldCheck,
@@ -27,6 +26,7 @@ import {
 } from 'firebase/auth';
 import { get, onValue, ref } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
+import PasakayLoader from '@/components/PasakayLoader';
 
 type Plan = '1_month' | '3_months';
 
@@ -401,7 +401,7 @@ export default function DriverMembershipPortalPage() {
         <div className="rounded-md border border-[#dfe5e1] bg-white p-5 shadow-[0_24px_70px_rgba(24,33,31,0.10)]">
           {loadingAuth ? (
             <div className="flex min-h-96 items-center justify-center">
-              <Loader2 className="h-7 w-7 animate-spin text-[#1f6f68]" />
+              <PasakayLoader size="panel" label="Checking driver session" />
             </div>
           ) : !user ? (
             <div className="space-y-5">
@@ -520,7 +520,7 @@ export default function DriverMembershipPortalPage() {
                 disabled={submitting || !driver || isActiveThreeMonthMember}
                 className="flex w-full items-center justify-center gap-2 rounded-md bg-[#1f6f68] px-4 py-3 font-black text-white disabled:opacity-55"
               >
-                {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Building2 className="h-5 w-5" />}
+                {submitting ? <PasakayLoader size="button" label="Opening PayMongo" /> : <Building2 className="h-5 w-5" />}
                 {isActiveThreeMonthMember ? '3 Months Membership Active' : (
                   <>
                     Pay with PayMongo QR PH
