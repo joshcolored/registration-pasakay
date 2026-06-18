@@ -17,6 +17,7 @@ import {
   UserCheck,
   Map,
   Smartphone,
+  BellRing,
   Store,
   Truck,
   Radio,
@@ -70,6 +71,7 @@ const navGroups = [
     items: [
       { name: 'Deleted Accounts', href: '/dashboard/deleted-accounts', icon: ShieldCheck },
       { name: 'App Versions', href: '/dashboard/app-versions', icon: Smartphone },
+      { name: 'Version Notifications', href: '/dashboard/app-version-notifications', icon: BellRing },
       { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     ],
   },
@@ -88,6 +90,7 @@ const pageDescriptions: Record<string, string> = {
   '/dashboard/driver-memberships': 'Driver membership approvals',
   '/dashboard/deleted-accounts': 'Account recovery blocks',
   '/dashboard/app-versions': 'Release controls',
+  '/dashboard/app-version-notifications': 'App update campaigns',
   '/dashboard/settings': 'Platform settings',
 };
 
